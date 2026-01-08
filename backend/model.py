@@ -3,12 +3,11 @@ import uuid
 import datetime
 from typing import List
 
+from database import Base
+
 from sqlalchemy import String, Integer, BigInteger, ForeignKey, DateTime, Enum
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
-
-class Base(DeclarativeBase):
-    pass
 
 # 1. Definimos os papeis possíveis
 class RoleEnum(enum.Enum):
@@ -132,7 +131,7 @@ class Estoque(Base):
     nome_unidade_id: Mapped[str] = mapped_column(ForeignKey("unidade_de_saude.nome_unidade"))
     unidade: Mapped["UnidadeDeSaude"] = relationship()
     
-    gestor_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("gestor.id_gestor"))
+    gestor_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("gestor.id"))
     gestor: Mapped["Gestor"] = relationship()
 
 class Lote(Base): 
@@ -168,13 +167,13 @@ class Aplicacao(Base):
     data: Mapped[datetime.datetime] = mapped_column(DateTime, default=datetime.datetime.now)
     
     # Todas as FKs corrigidas para apontar para Tabela.Coluna
-    paciente_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("paciente.id_paciente"))
+    paciente_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("paciente.id"))
     paciente: Mapped["Paciente"] = relationship(back_populates="aplicacoes")
     
-    profissional_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("profissional_de_saude.id_profissional"))
+    profissional_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("profissional_de_saude.id"))
     profissional: Mapped["Profissional"] = relationship()
     
-    gestor_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("gestor.id_gestor"))
+    gestor_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("gestor.id"))
     gestor: Mapped["Gestor"] = relationship()
     
     unidade_nome: Mapped[str] = mapped_column(ForeignKey("unidade_de_saude.nome_unidade"))
@@ -192,7 +191,7 @@ class Campanha(Base):
     data_fim: Mapped[datetime.datetime] = mapped_column(DateTime, nullable=False)
     nome: Mapped[str] = mapped_column("nome_campanha", String(100), nullable=False)
 
-    admin_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("admin.id_admin"))
+    admin_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("admin.id"))
     admin: Mapped["Admin"] = relationship()
 
 class Publicacao(Base): 
