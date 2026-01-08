@@ -23,12 +23,12 @@ class Usuario(Base):
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     
     # Campos comuns
-    first_name: Mapped[str] = mapped_column(String(20), nullable=False)
-    last_name: Mapped[str] = mapped_column(String(20), nullable=False)
-    password: Mapped[str] = mapped_column(String, nullable=False)
+    pnome: Mapped[str] = mapped_column(String(20), nullable=False)
+    unome: Mapped[str] = mapped_column(String(20), nullable=False)
+    senha: Mapped[str] = mapped_column(String, nullable=False)
     email: Mapped[str] = mapped_column(String, nullable=False, unique=True)
-    phone: Mapped[str] = mapped_column(String(30), nullable=False)
-    cpf: Mapped[str] = mapped_column(String(13), nullable=False, unique=True)
+    telefone: Mapped[str] = mapped_column(String(30), nullable=False)
+    cpf_usuario: Mapped[str] = mapped_column(String(13), nullable=False, unique=True)
     
     # O campo discriminador (A tal da ROLE)
     role: Mapped[RoleEnum] = mapped_column(Enum(RoleEnum), nullable=False)
@@ -46,9 +46,6 @@ class Paciente(Usuario):
     
     # O ID é FK para usuario.id e PK do paciente ao mesmo tempo
     id: Mapped[uuid.UUID] = mapped_column(ForeignKey("usuario.id"), primary_key=True)
-    
-    # Campos específicos de paciente (ex: número do SUS, histórico, etc)
-    # num_sus: Mapped[str] = mapped_column(String, nullable=True) 
 
     aplicacoes: Mapped[List["Aplicacao"]] = relationship(back_populates="paciente")
 
@@ -59,9 +56,6 @@ class Paciente(Usuario):
 class Gestor(Usuario):
     __tablename__ = "gestor"
     id: Mapped[uuid.UUID] = mapped_column(ForeignKey("usuario.id"), primary_key=True)
-    
-    # Campos específicos de gestor (se houver)
-    departamento: Mapped[str] = mapped_column(String, nullable=True)
 
     __mapper_args__ = {
         "polymorphic_identity": RoleEnum.GESTOR,
@@ -80,7 +74,7 @@ class Profissional(Usuario):
     id: Mapped[uuid.UUID] = mapped_column(ForeignKey("usuario.id"), primary_key=True)
     
     # Exemplo: CRM ou Registro profissional só existe aqui
-    registro_conselho: Mapped[str] = mapped_column(String(20), nullable=True)
+    garu_formacao: Mapped[str] = mapped_column(String(20), nullable=False)
 
     __mapper_args__ = {
         "polymorphic_identity": RoleEnum.PROFISSIONAL,
@@ -89,13 +83,13 @@ class Profissional(Usuario):
 
 class Fabricante(Base):
     __tablename__ = "fabricante"
-    cnpj: Mapped[str] = mapped_column("cnpj_fabricante", String(14), primary_key=True)
+    cnpj_fabricante: Mapped[str] = mapped_column("cnpj_fabricante", String(14), primary_key=True)
     nome: Mapped[str] = mapped_column(String(40), nullable=False)
     telefone: Mapped[str] = mapped_column(String(20), nullable=False)
 
 class Fornecedor(Base):
     __tablename__ = "fornecedor"
-    cnpj: Mapped[str] = mapped_column("cnpj_fornecedor", String(14), primary_key=True)
+    cnpj_fornecedor: Mapped[str] = mapped_column("cnpj_fornecedor", String(14), primary_key=True)
     nome: Mapped[str] = mapped_column(String(40), nullable=False)
     telefone: Mapped[str] = mapped_column(String(20), nullable=False)
 
@@ -107,7 +101,8 @@ class UnidadeDeSaude(Base):
     rua: Mapped[str] = mapped_column(String(40), nullable=False)
     bairro: Mapped[str] = mapped_column(String(30), nullable=False)
     cidade: Mapped[str] = mapped_column(String(30), nullable=False)
-    numero: Mapped[int] = mapped_column(Integer, nullable=False)
+    estado: Mapped[str] = mapped_column(String(30), nullable=False)
+    numero: Mapped[int] = mapped_column(Integer, nullable=True)
 
 class Vacina(Base):
     __tablename__ = "vacina"
@@ -125,10 +120,10 @@ class Vacina(Base):
 
 class Estoque(Base): 
     __tablename__ = "estoque"
-    id: Mapped[int] = mapped_column("id_estoque", Integer, primary_key=True, autoincrement=True)
+    id_estoque: Mapped[int] = mapped_column("id_estoque", Integer, primary_key=True, autoincrement=True)
     
     # Correção: FK aponta para a tabela, Relationship carrega o objeto
-    nome_unidade_id: Mapped[str] = mapped_column(ForeignKey("unidade_de_saude.nome_unidade"))
+    nome_unidade: Mapped[str] = mapped_column(ForeignKey("unidade_de_saude.nome_unidade"))
     unidade: Mapped["UnidadeDeSaude"] = relationship()
     
     gestor_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("gestor.id"))
@@ -136,7 +131,7 @@ class Estoque(Base):
 
 class Lote(Base): 
     __tablename__ = "lote"
-    id: Mapped[int] = mapped_column("id_lote", BigInteger, primary_key=True, autoincrement=True)
+    id_lote: Mapped[int] = mapped_column("id_lote", BigInteger, primary_key=True, autoincrement=True)
     validade: Mapped[datetime.datetime] = mapped_column(DateTime, nullable=False)
     data_chegada: Mapped[datetime.datetime] = mapped_column(DateTime, nullable=False)
     quantidade: Mapped[int] = mapped_column(Integer, nullable=False)
@@ -154,7 +149,7 @@ class Lote(Base):
 
 class Dose(Base): 
     __tablename__ = "dose" # Faltava isso
-    id: Mapped[int] = mapped_column("id_dose", BigInteger, primary_key=True, autoincrement=True)
+    id_dose: Mapped[int] = mapped_column("id_dose", BigInteger, primary_key=True, autoincrement=True)
     intervalo: Mapped[int] = mapped_column(Integer, nullable=False)
     numero: Mapped[int] = mapped_column(Integer)
     
@@ -163,7 +158,7 @@ class Dose(Base):
 
 class Aplicacao(Base): 
     __tablename__ = "aplicacao"
-    id: Mapped[int] = mapped_column("id_aplicação", BigInteger, primary_key=True, autoincrement=True)
+    id_aplicacao: Mapped[int] = mapped_column("id_aplicação", BigInteger, primary_key=True, autoincrement=True)
     data: Mapped[datetime.datetime] = mapped_column(DateTime, default=datetime.datetime.now)
     
     # Todas as FKs corrigidas para apontar para Tabela.Coluna
@@ -173,8 +168,8 @@ class Aplicacao(Base):
     profissional_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("profissional_de_saude.id"))
     profissional: Mapped["Profissional"] = relationship()
     
-    gestor_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("gestor.id"))
-    gestor: Mapped["Gestor"] = relationship()
+    admin_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("admin.id"))
+    admin: Mapped["Admin"] = relationship()
     
     unidade_nome: Mapped[str] = mapped_column(ForeignKey("unidade_de_saude.nome_unidade"))
     unidade: Mapped["UnidadeDeSaude"] = relationship()
@@ -186,7 +181,7 @@ class Aplicacao(Base):
 
 class Campanha(Base):
     __tablename__ = "campanha"
-    id: Mapped[int] = mapped_column("id_campanha", Integer, autoincrement=True, primary_key=True)
+    id_campanha: Mapped[int] = mapped_column("id_campanha", Integer, autoincrement=True, primary_key=True)
     data_inicio: Mapped[datetime.datetime] = mapped_column(DateTime, nullable=False)
     data_fim: Mapped[datetime.datetime] = mapped_column(DateTime, nullable=False)
     nome: Mapped[str] = mapped_column("nome_campanha", String(100), nullable=False)
