@@ -3,7 +3,7 @@ import uuid
 import datetime
 from typing import List
 
-from database import Base
+from backend.database import Base
 
 from sqlalchemy import String, Integer, BigInteger, ForeignKey, DateTime, Enum
 from sqlalchemy.dialects.postgresql import UUID
@@ -13,7 +13,7 @@ from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 class RoleEnum(enum.Enum):
     ADMIN = "admin"
     GESTOR = "gestor"
-    PACIENTE = "patient"
+    PACIENTE = "patiente"
     PROFISSIONAL = "profissional"
 
 # 2. Tabela Pai (Tudo que é COMUM a todos vai aqui)

@@ -8,22 +8,22 @@ from pydantic import BaseModel, EmailStr, ConfigDict, Field
 class RoleEnum(str, enum.Enum):
     ADMIN = "admin"
     GESTOR = "gestor"
-    PACIENTE = "patient"
-    PROFISSIONAL = "healthcare_prof"
+    PACIENTE = "patiente"
+    PROFISSIONAL = "profissional"
 
 # --- 1. Schemas de Usuário (Hierarquia) ---
 
 # Base: Campos comuns a todos os seres humanos do sistema
 class UsuarioBase(BaseModel):
-    first_name: str
-    last_name: str
+    pnome: str
+    unome: str
     email: EmailStr
-    phone: str
-    cpf: str
+    telefone: str
+    cpf_usuario: str
 
 # Create Base: Adiciona senha (comum a todos na criação)
 class UsuarioCreateCommon(UsuarioBase):
-    password: str
+    senha: str
 
 # Response Base: O que todo usuário retorna (sem senha, com ID e Role)
 class UsuarioResponse(UsuarioBase):
@@ -97,6 +97,7 @@ class UnidadeBase(BaseModel):
     rua: str
     bairro: str
     cidade: str
+    estado: str
     numero: int
 
 class UnidadeCreate(UnidadeBase):
@@ -124,11 +125,11 @@ class VacinaResponse(VacinaBase):
     model_config = ConfigDict(from_attributes=True)
 
 class EstoqueCreate(BaseModel):
-    nome_unidade_id: str
+    nome_unidade: str
     gestor_id: uuid.UUID
 
 class EstoqueResponse(BaseModel):
-    id: int
+    id_estoque: int
     unidade: Optional[UnidadeResponse] = None
     # Note que agora usamos GestorResponse (que herda de UsuarioResponse)
     gestor: Optional[GestorResponse] = None
@@ -143,7 +144,7 @@ class LoteCreate(BaseModel):
     fornecedor_cnpj: str
 
 class LoteResponse(LoteCreate):
-    id: int
+    id_lote: int
     vacina: Optional[VacinaResponse] = None
     model_config = ConfigDict(from_attributes=True)
 
@@ -156,25 +157,25 @@ class DoseCreate(BaseModel):
     vacina_id: int
 
 class DoseResponse(DoseCreate):
-    id: int
+    id_dose: int
     model_config = ConfigDict(from_attributes=True)
 
 class AplicacaoCreate(BaseModel):
     data: Optional[datetime] = None
     paciente_id: uuid.UUID
     profissional_id: uuid.UUID
-    gestor_id: uuid.UUID
+    admin_id: uuid.UUID
     unidade_nome: str
     dose_id: int
 
 class AplicacaoResponse(BaseModel):
-    id: int
+    id_aplicacao: int
     data: datetime
     
     # Aqui a mágica acontece: O Pydantic usa os Schemas Específicos
     paciente: Optional[PacienteResponse] = None
     profissional: Optional[ProfissionalResponse] = None
-    gestor: Optional[GestorResponse] = None
+    admin: Optional[GestorResponse] = None
     
     dose: Optional[DoseResponse] = None
     unidade: Optional[UnidadeResponse] = None
