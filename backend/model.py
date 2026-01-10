@@ -3,26 +3,34 @@ import uuid
 import datetime
 from typing import List
 
-from backend.database import Base
+from database import Base
 
-from sqlalchemy import String, Integer, BigInteger, ForeignKey, DateTime, Enum
+from sqlalchemy import Index, String, Integer, BigInteger, ForeignKey, DateTime, Enum, text
 from sqlalchemy.dialects.postgresql import UUID
-from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 # 1. Definimos os papeis possíveis
 class RoleEnum(enum.Enum):
-    ADMIN = "admin"
-    GESTOR = "gestor"
-    PACIENTE = "patiente"
-    PROFISSIONAL = "profissional"
+    ADMIN = "ADMIN"
+    GESTOR = "GESTOR"
+    PACIENTE = "PACIENTE"
+    PROFISSIONAL = "PROFISSIONAL"
 
 # 2. Tabela Pai (Tudo que é COMUM a todos vai aqui)
 class Usuario(Base):
     __tablename__ = "usuario"
+
+    __table_args__ = (
+        # Cria um índice para busca rápida na concatenação dos nomes
+        Index(
+            'idx_usuario_nome_completo_trgm',
+            text("(pnome || ' ' || unome) gin_trgm_ops"),
+            postgresql_using='gin'
+        ),
+    )
     
-    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    id: Mapped[uuid.UUID] = mapped_column("id", UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     
-    # Campos comuns
     pnome: Mapped[str] = mapped_column(String(20), nullable=False)
     unome: Mapped[str] = mapped_column(String(20), nullable=False)
     senha: Mapped[str] = mapped_column(String, nullable=False)
@@ -35,7 +43,6 @@ class Usuario(Base):
 
     # Configuração do Polimorfismo
     __mapper_args__ = {
-        "polymorphic_identity": "usuario",
         "polymorphic_on": "role",
     }
 
@@ -95,14 +102,25 @@ class Fornecedor(Base):
 
 class UnidadeDeSaude(Base): 
     __tablename__ = "unidade_de_saude"
-    # Atenção: Usar nome como PK. Se o nome mudar, quebra os relacionamentos.
-    nome_unidade: Mapped[str] = mapped_column("nome_unidade", String, primary_key=True)
+
+    id: Mapped[uuid.UUID] = mapped_column("id", UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+
+    nome_unidade: Mapped[str] = mapped_column("nome_unidade", String, unique=True)
     tipo: Mapped[str] = mapped_column(String(100), nullable=False)
     rua: Mapped[str] = mapped_column(String(40), nullable=False)
     bairro: Mapped[str] = mapped_column(String(30), nullable=False)
     cidade: Mapped[str] = mapped_column(String(30), nullable=False)
     estado: Mapped[str] = mapped_column(String(30), nullable=False)
     numero: Mapped[int] = mapped_column(Integer, nullable=True)
+
+    __table_args__ = (
+
+        Index(
+            "idx_nome_unidade",
+            text("nome_unidade gin_trgm_ops"),
+            postgresql_using='gin'
+        ),
+    )
 
 class Vacina(Base):
     __tablename__ = "vacina"
@@ -123,7 +141,7 @@ class Estoque(Base):
     id_estoque: Mapped[int] = mapped_column("id_estoque", Integer, primary_key=True, autoincrement=True)
     
     # Correção: FK aponta para a tabela, Relationship carrega o objeto
-    nome_unidade: Mapped[str] = mapped_column(ForeignKey("unidade_de_saude.nome_unidade"))
+    nome_unidade: Mapped[str] = mapped_column(ForeignKey("unidade_de_saude.id"))
     unidade: Mapped["UnidadeDeSaude"] = relationship()
     
     gestor_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("gestor.id"))
@@ -171,11 +189,14 @@ class Aplicacao(Base):
     admin_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("admin.id"))
     admin: Mapped["Admin"] = relationship()
     
-    unidade_nome: Mapped[str] = mapped_column(ForeignKey("unidade_de_saude.nome_unidade"))
+    unidade_nome: Mapped[str] = mapped_column(ForeignKey("unidade_de_saude.id"))
     unidade: Mapped["UnidadeDeSaude"] = relationship()
     
     dose_id: Mapped[int] = mapped_column(ForeignKey("dose.id_dose"))
     dose: Mapped["Dose"] = relationship()
+
+    lote_id: Mapped[int] = mapped_column(ForeignKey("lote.id_lote"))
+    lote: Mapped["Lote"] = relationship()
 
 # --- Campanhas ---
 

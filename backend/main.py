@@ -1,9 +1,9 @@
 from fastapi import FastAPI
+import model
+from database import engine 
+from routes import users, ubs
 from fastapi.middleware.cors import CORSMiddleware
-
-from backend import model
-from backend.database import engine, Base
-from backend.routes import users, ubs
+from database import Base
 
 Base.metadata.create_all(bind=engine)
 
@@ -16,6 +16,10 @@ app.add_middleware(
     allow_methods=["*"],  # Permite GET, POST, PUT, DELETE, OPTIONS etc
     allow_headers=["*"],  # Permite qualquer header
 )
+
+@app.get("/")
+def teste():
+    return {"bora pro racha hoje à noite?"}
 
 app.include_router(users.router)
 app.include_router(ubs.router)

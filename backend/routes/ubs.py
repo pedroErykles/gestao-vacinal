@@ -1,8 +1,9 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
+from sqlalchemy import func
 
-from backend import model, schemas
-from ..database import SessionLocal
+import model, schemas
+from database import SessionLocal
 
 router = APIRouter(
     prefix="/ubs",
@@ -29,6 +30,24 @@ def criar_unidade(unidade: schemas.UnidadeCreate, db: Session = Depends(get_db))
 @router.get("/unidades", response_model=list[schemas.UnidadeResponse])
 def listar_unidades(db: Session = Depends(get_db)):
     return db.query(model.UnidadeDeSaude).all()
+
+@router.get("/unidades/busca", response_model=list[schemas.BuscaUnidade])
+def fuzzysearch_unidades(termo: str = Query(..., min_length=3), db: Session = Depends(get_db)):
+    results = (
+        db.query(
+            model.UnidadeDeSaude.id,
+            model.UnidadeDeSaude.nome_unidade
+            )
+        .filter(
+            func.similarity(model.UnidadeDeSaude.nome_unidade, termo) > 0.15
+        )
+        .order_by(func.similarity(model.UnidadeDeSaude.nome_unidade, termo).desc())
+        .limit(10)
+        .all()
+    )
+
+    return results
+
 
 @router.get("/unidades/{nome_unidade}", response_model=schemas.UnidadeResponse)
 def buscar_unidade(nome_unidade: str, db: Session = Depends(get_db)):

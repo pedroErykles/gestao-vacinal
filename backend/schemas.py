@@ -6,10 +6,10 @@ from pydantic import BaseModel, EmailStr, ConfigDict, Field
 
 # --- 0. Enums (Deve ser igual ao do model) ---
 class RoleEnum(str, enum.Enum):
-    ADMIN = "admin"
-    GESTOR = "gestor"
-    PACIENTE = "patiente"
-    PROFISSIONAL = "profissional"
+    ADMIN = "ADMIN"
+    GESTOR = "GESTOR"
+    PACIENTE = "PACIENTE"
+    PROFISSIONAL = "PROFISSIONAL"
 
 # --- 1. Schemas de Usuário (Hierarquia) ---
 
@@ -32,16 +32,17 @@ class UsuarioResponse(UsuarioBase):
     
     model_config = ConfigDict(from_attributes=True)
 
+class BaseUsuarioBuscaResponse(BaseModel):
+    id: uuid.UUID
+    nome_completo: str
+
 # --- 1.1 Schemas Específicos por Papel ---
 
 # PACIENTE
 class PacienteCreate(UsuarioCreateCommon):
-    # Forçamos o role para garantir segurança na criação
     role: RoleEnum = RoleEnum.PACIENTE
-    # Se tiver campos extras (ex: num_sus), coloque aqui
 
 class PacienteResponse(UsuarioResponse):
-    # Se o paciente tiver campos extras no model, adicione aqui
     pass
 
 # GESTOR
@@ -99,6 +100,10 @@ class UnidadeBase(BaseModel):
     cidade: str
     estado: str
     numero: int
+
+class BuscaUnidade(BaseModel):
+    id: uuid.UUID
+    nome_unidade: str
 
 class UnidadeCreate(UnidadeBase):
     nome_unidade: str
@@ -167,12 +172,13 @@ class AplicacaoCreate(BaseModel):
     admin_id: uuid.UUID
     unidade_nome: str
     dose_id: int
+    lote_id: int
 
 class AplicacaoResponse(BaseModel):
     id_aplicacao: int
     data: datetime
-    
-    # Aqui a mágica acontece: O Pydantic usa os Schemas Específicos
+
+    lote: Optional[int] = None #aqui é o id do lote apenas 
     paciente: Optional[PacienteResponse] = None
     profissional: Optional[ProfissionalResponse] = None
     admin: Optional[GestorResponse] = None

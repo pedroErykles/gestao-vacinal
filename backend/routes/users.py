@@ -1,9 +1,11 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
+from sqlalchemy import func
 import uuid
+from model import Usuario, RoleEnum
 
-from backend import model, schemas
-from ..database import SessionLocal
+import model, schemas
+from database import SessionLocal
 
 router = APIRouter(
     prefix="/users",
@@ -30,6 +32,86 @@ def criar_paciente(paciente: schemas.PacienteCreate, db: Session = Depends(get_d
 @router.get("/pacientes", response_model=list[schemas.PacienteResponse])
 def listar_pacientes(db: Session = Depends(get_db)):
     return db.query(model.Paciente).all()
+
+@router.get("/pacientes/busca", response_model=list[schemas.BaseUsuarioBuscaResponse])
+def buscar_pacientes(termo: str = Query(..., min_length=3), db: Session = Depends(get_db)):
+    nome_completo = model.Paciente.pnome + " " + model.Paciente.unome
+    
+    results = (
+        db.query(
+            model.Usuario.id,
+            nome_completo.label("nome_completo")
+            )
+        .filter(
+            Usuario.role == RoleEnum.PACIENTE,
+            func.similarity(nome_completo, termo) > 0.3
+        )
+        .order_by(func.similarity(nome_completo, termo).desc())
+        .limit(10)
+        .all()
+    )
+
+    return results
+
+@router.get("profissionais/busca")
+def fuzzysearch_profissional(termo: str = Query(..., min_length=3), db: Session = Depends(get_db)):
+    nome_completo = model.Profissional.pnome + " " + model.Profissional.unome
+    
+    results = (
+        db.query(
+            model.Usuario.id,
+            nome_completo.label("nome_completo")
+            )
+        .filter(
+            Usuario.role == RoleEnum.PROFISSIONAL,
+            func.similarity(nome_completo, termo) > 0.3
+        )
+        .order_by(func.similarity(nome_completo, termo).desc())
+        .limit(10)
+        .all()
+    )
+
+    return results
+
+@router.get("gestores/busca")
+def fuzzysearch_gestores(termo: str = Query(..., min_length=3), db: Session = Depends(get_db)):
+    nome_completo = model.Gestor.pnome + " " + model.Gestor.unome
+    
+    results = (
+        db.query(
+            model.Usuario.id,
+            nome_completo.label("nome_completo")
+            )
+        .filter(
+            Usuario.role == RoleEnum.GESTOR,
+            func.similarity(nome_completo, termo) > 0.3
+        )
+        .order_by(func.similarity(nome_completo, termo).desc())
+        .limit(10)
+        .all()
+    )
+
+    return results
+
+@router.get("admins/busca")
+def fuzzysearch_admin(termo: str = Query(..., min_length=3), db: Session = Depends(get_db)):
+    nome_completo = model.Admin.pnome + " " + model.Admin.unome
+    
+    results = (
+        db.query(
+            model.Usuario.id,
+            nome_completo.label("nome_completo")
+            )
+        .filter(
+            Usuario.role == RoleEnum.ADMIN,
+            func.similarity(nome_completo, termo) > 0.3
+        )
+        .order_by(func.similarity(nome_completo, termo).desc())
+        .limit(10)
+        .all()
+    )
+
+    return results
 
 @router.get("/pacientes/{paciente_id}", response_model=schemas.PacienteResponse)
 def buscar_paciente(paciente_id: uuid.UUID, db: Session = Depends(get_db)):
