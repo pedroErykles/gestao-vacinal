@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
-from sqlalchemy import func
+from sqlalchemy import func, or_
 
 import model, schemas
 from database import SessionLocal
@@ -39,7 +39,11 @@ def fuzzysearch_unidades(termo: str = Query(..., min_length=3), db: Session = De
             model.UnidadeDeSaude.nome_unidade
             )
         .filter(
-            func.similarity(model.UnidadeDeSaude.nome_unidade, termo) > 0.15
+            or_(
+                model.UnidadeDeSaude.nome_unidade.self_group().ilike(f"%{termo}%"),
+                model.UnidadeDeSaude.nome_unidade.op("<%", is_comparison=True)(termo)
+            )
+            
         )
         .order_by(func.similarity(model.UnidadeDeSaude.nome_unidade, termo).desc())
         .limit(10)

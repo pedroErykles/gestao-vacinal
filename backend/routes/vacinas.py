@@ -1,5 +1,7 @@
-from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy.orm import Session
+from fastapi import APIRouter, Depends, HTTPException, status
+
+from sqlalchemy import desc, func, or_
+from sqlalchemy.orm import Session, joinedload
 from database import SessionLocal
 import schemas 
 import model 
@@ -30,7 +32,29 @@ def criar_vacina(vacina: schemas.VacinaCreate, db: Session = Depends(get_db)):
 
     return obj
 
-from fastapi import HTTPException, status
+@router.get("/buscar", response_model=list[schemas.BuscaVacina])
+def buscar_vacinas(
+    termo: str, 
+    db: Session = Depends(get_db)
+):
+
+    vacinas = db.query(
+        model.Vacina.codigo_vacina.label("id"),
+        model.Vacina.nome.label("nome"),
+        model.Fabricante.nome.label("fabricante")
+        )\
+        .join(model.Fabricante, model.Vacina.fabricante_cnpj == model.Fabricante.cnpj_fabricante)\
+        .filter(
+            or_(
+                model.Vacina.nome.op("<%")(termo),
+                model.Fabricante.nome.op("<%")(termo)
+            )
+        )\
+        .order_by(func.least(func.similarity(model.Vacina.nome, termo), func.similarity(model.Fabricante.nome)))\
+        .limit(10)\
+        .all()
+
+    return vacinas
 
 @router.put("/{vacina_id}", response_model=schemas.VacinaResponse)
 def atualizar_vacina(

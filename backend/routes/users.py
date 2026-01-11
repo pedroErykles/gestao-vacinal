@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
-from sqlalchemy import func
+from sqlalchemy import func, or_, text
 import uuid
 from model import Usuario, RoleEnum
 
@@ -44,7 +44,11 @@ def buscar_pacientes(termo: str = Query(..., min_length=3), db: Session = Depend
             )
         .filter(
             Usuario.role == RoleEnum.PACIENTE,
-            func.similarity(nome_completo, termo) > 0.3
+            or_(
+                nome_completo.self_group().ilike(f"%{termo}%"),
+                nome_completo.self_group().op("<%", is_comparison=True)(termo)
+            ),
+            
         )
         .order_by(func.similarity(nome_completo, termo).desc())
         .limit(10)
@@ -64,7 +68,11 @@ def fuzzysearch_profissional(termo: str = Query(..., min_length=3), db: Session 
             )
         .filter(
             Usuario.role == RoleEnum.PROFISSIONAL,
-            func.similarity(nome_completo, termo) > 0.3
+            or_(
+                nome_completo.self_group().ilike(f"%{termo}%"),
+                nome_completo.self_group().op("<%", is_comparison=True)(termo)
+            ),
+            
         )
         .order_by(func.similarity(nome_completo, termo).desc())
         .limit(10)
@@ -84,7 +92,11 @@ def fuzzysearch_gestores(termo: str = Query(..., min_length=3), db: Session = De
             )
         .filter(
             Usuario.role == RoleEnum.GESTOR,
-            func.similarity(nome_completo, termo) > 0.3
+            or_(
+                nome_completo.self_group().ilike(f"%{termo}%"),
+                nome_completo.self_group().op("<%", is_comparison=True)(termo)
+            ),
+            
         )
         .order_by(func.similarity(nome_completo, termo).desc())
         .limit(10)
@@ -96,6 +108,8 @@ def fuzzysearch_gestores(termo: str = Query(..., min_length=3), db: Session = De
 @router.get("admins/busca")
 def fuzzysearch_admin(termo: str = Query(..., min_length=3), db: Session = Depends(get_db)):
     nome_completo = model.Admin.pnome + " " + model.Admin.unome
+
+    db.execute(text("SELECT set_limit(0.3);"))
     
     results = (
         db.query(
@@ -104,7 +118,11 @@ def fuzzysearch_admin(termo: str = Query(..., min_length=3), db: Session = Depen
             )
         .filter(
             Usuario.role == RoleEnum.ADMIN,
-            func.similarity(nome_completo, termo) > 0.3
+            or_(
+                nome_completo.self_group().ilike(f"%{termo}%"),
+                nome_completo.self_group().op("<%", is_comparison=True)(termo)
+            ),
+            
         )
         .order_by(func.similarity(nome_completo, termo).desc())
         .limit(10)

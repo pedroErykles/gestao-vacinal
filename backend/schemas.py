@@ -121,6 +121,10 @@ class VacinaBase(BaseModel):
     doenca: str
     quantidade_doses: int
 
+class BuscaVacina(BaseModel): 
+    nome: str
+    fabricante: str
+
 class VacinaCreate(VacinaBase):
     fabricante_cnpj: str
 

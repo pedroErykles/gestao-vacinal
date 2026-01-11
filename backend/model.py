@@ -129,8 +129,21 @@ class Vacina(Base):
     publico_alvo: Mapped[str] = mapped_column("publico_alvo", String(40), nullable=False)
     doenca: Mapped[str] = mapped_column(String(50), nullable=False)
     quantidade_doses: Mapped[int] = mapped_column("quantidade_de_doses", Integer, nullable=False)
+
+    __table_args__ = (
+        Index(
+            "idx_nome_vacina",
+            text("nome gin_trgm_ops"),
+            postgresql_using='gin'
+        ),
+
+        Index(
+            "idx_vacina_doenca_trgm",
+            text("doenca gin_trgm_ops"),
+            postgresql_using='gin'
+        )
+    )
     
-    # Correção: Separar ID do Objeto
     fabricante_cnpj: Mapped[str] = mapped_column(ForeignKey("fabricante.cnpj_fabricante"))
     fabricante: Mapped["Fabricante"] = relationship()
 
