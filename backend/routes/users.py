@@ -1,9 +1,8 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 from sqlalchemy import func, or_, text
+from sqlalchemy.exc import IntegrityError
 import uuid
-from model import Usuario, RoleEnum
-
 import model, schemas
 from database import SessionLocal
 
@@ -19,20 +18,34 @@ def get_db():
     finally:
         db.close()
 
-# paciente
 
-@router.post("/pacientes", response_model=schemas.PacienteResponse)
-def criar_paciente(paciente: schemas.PacienteCreate, db: Session = Depends(get_db)):
-    obj = model.Paciente(**paciente.model_dump())
-    db.add(obj)
-    db.commit()
-    db.refresh(obj)
-    return obj
+# função auxiliar 
+def tratar_erro_unico(e: IntegrityError):
+    mensagem = str(e.orig).lower()
 
-@router.get("/pacientes", response_model=list[schemas.PacienteResponse])
-def listar_pacientes(db: Session = Depends(get_db)):
-    return db.query(model.Paciente).all()
+    if "email" in mensagem:
+        raise HTTPException(
+            status_code=409,
+            detail="Já existe um usuário com este email"
+        )
+    if "cpf" in mensagem:
+        raise HTTPException(
+            status_code=409,
+            detail="CPF já cadastrado"
+        )
+    if "telefone" in mensagem:
+        raise HTTPException(
+            status_code=409,
+            detail="Telefone já cadastrado"
+        )
 
+    raise HTTPException(
+        status_code=409,
+        detail="Erro de integridade nos dados enviados"
+    )
+
+
+# busca por similaridade
 @router.get("/pacientes/busca", response_model=list[schemas.BaseUsuarioBuscaResponse])
 def buscar_pacientes(termo: str = Query(..., min_length=3), db: Session = Depends(get_db)):
     nome_completo = model.Paciente.pnome + " " + model.Paciente.unome
@@ -43,7 +56,7 @@ def buscar_pacientes(termo: str = Query(..., min_length=3), db: Session = Depend
             nome_completo.label("nome_completo")
             )
         .filter(
-            Usuario.role == RoleEnum.PACIENTE,
+            model.Usuario.role == model.RoleEnum.PACIENTE,
             or_(
                 nome_completo.self_group().ilike(f"%{termo}%"),
                 nome_completo.self_group().op("<%", is_comparison=True)(termo)
@@ -67,7 +80,7 @@ def fuzzysearch_profissional(termo: str = Query(..., min_length=3), db: Session 
             nome_completo.label("nome_completo")
             )
         .filter(
-            Usuario.role == RoleEnum.PROFISSIONAL,
+            model.Usuario.role == model.RoleEnum.PROFISSIONAL,
             or_(
                 nome_completo.self_group().ilike(f"%{termo}%"),
                 nome_completo.self_group().op("<%", is_comparison=True)(termo)
@@ -91,7 +104,7 @@ def fuzzysearch_gestores(termo: str = Query(..., min_length=3), db: Session = De
             nome_completo.label("nome_completo")
             )
         .filter(
-            Usuario.role == RoleEnum.GESTOR,
+            model.Usuario.role == model.RoleEnum.GESTOR,
             or_(
                 nome_completo.self_group().ilike(f"%{termo}%"),
                 nome_completo.self_group().op("<%", is_comparison=True)(termo)
@@ -117,7 +130,7 @@ def fuzzysearch_admin(termo: str = Query(..., min_length=3), db: Session = Depen
             nome_completo.label("nome_completo")
             )
         .filter(
-            Usuario.role == RoleEnum.ADMIN,
+            model.Usuario.role == model.RoleEnum.ADMIN,
             or_(
                 nome_completo.self_group().ilike(f"%{termo}%"),
                 nome_completo.self_group().op("<%", is_comparison=True)(termo)
@@ -130,6 +143,26 @@ def fuzzysearch_admin(termo: str = Query(..., min_length=3), db: Session = Depen
     )
 
     return results
+
+
+# paciente
+
+@router.post("/pacientes", response_model=schemas.PacienteResponse)
+def criar_paciente(paciente: schemas.PacienteCreate, db: Session = Depends(get_db)):
+    obj = model.Paciente(**paciente.model_dump())
+    db.add(obj)
+    try:
+        db.commit()
+    except IntegrityError as e:
+        db.rollback()
+        tratar_erro_unico(e)
+
+    db.refresh(obj)
+    return obj
+
+@router.get("/pacientes", response_model=list[schemas.PacienteResponse])
+def listar_pacientes(db: Session = Depends(get_db)):
+    return db.query(model.Paciente).all()
 
 @router.get("/pacientes/{paciente_id}", response_model=schemas.PacienteResponse)
 def buscar_paciente(paciente_id: uuid.UUID, db: Session = Depends(get_db)):
@@ -151,9 +184,15 @@ def atualizar_paciente(
     for campo, valor in dados.model_dump().items():
         setattr(obj, campo, valor)
 
-    db.commit()
+    try:
+        db.commit()
+    except IntegrityError as e:
+        db.rollback()
+        tratar_erro_unico(e)
+
     db.refresh(obj)
     return obj
+
 
 @router.delete("/pacientes/{paciente_id}")
 def deletar_paciente(paciente_id: uuid.UUID, db: Session = Depends(get_db)):
@@ -171,9 +210,15 @@ def deletar_paciente(paciente_id: uuid.UUID, db: Session = Depends(get_db)):
 def criar_profissional(profissional: schemas.ProfissionalCreate, db: Session = Depends(get_db)):
     obj = model.Profissional(**profissional.model_dump())
     db.add(obj)
-    db.commit()
+    try:
+        db.commit()
+    except IntegrityError as e:
+        db.rollback()
+        tratar_erro_unico(e)
+
     db.refresh(obj)
     return obj
+
 
 @router.get("/profissionais", response_model=list[schemas.ProfissionalResponse])
 def listar_profissionais(db: Session = Depends(get_db)):
@@ -199,7 +244,12 @@ def atualizar_profissional(
     for campo, valor in dados.model_dump().items():
         setattr(obj, campo, valor)
 
-    db.commit()
+    try:
+        db.commit()
+    except IntegrityError as e:
+        db.rollback()
+        tratar_erro_unico(e)
+
     db.refresh(obj)
     return obj
 
@@ -219,7 +269,12 @@ def deletar_profissional(profissional_id: uuid.UUID, db: Session = Depends(get_d
 def criar_gestor(gestor: schemas.GestorCreate, db: Session = Depends(get_db)):
     obj = model.Gestor(**gestor.model_dump())
     db.add(obj)
-    db.commit()
+    try:
+        db.commit()
+    except IntegrityError as e:
+        db.rollback()
+        tratar_erro_unico(e)
+
     db.refresh(obj)
     return obj
 
@@ -247,7 +302,12 @@ def atualizar_gestor(
     for campo, valor in dados.model_dump().items():
         setattr(obj, campo, valor)
 
-    db.commit()
+    try:
+        db.commit()
+    except IntegrityError as e:
+        db.rollback()
+        tratar_erro_unico(e)
+
     db.refresh(obj)
     return obj
 
@@ -267,7 +327,12 @@ def deletar_gestor(gestor_id: uuid.UUID, db: Session = Depends(get_db)):
 def criar_admin(admin: schemas.AdminCreate, db: Session = Depends(get_db)):
     obj = model.Admin(**admin.model_dump())
     db.add(obj)
-    db.commit()
+    try:
+        db.commit()
+    except IntegrityError as e:
+        db.rollback()
+        tratar_erro_unico(e)
+
     db.refresh(obj)
     return obj
 
@@ -294,8 +359,13 @@ def atualizar_admin(
 
     for campo, valor in dados.model_dump().items():
         setattr(obj, campo, valor)
+    
+    try:
+        db.commit()
+    except IntegrityError as e:
+        db.rollback()
+        tratar_erro_unico(e)
 
-    db.commit()
     db.refresh(obj)
     return obj
 
