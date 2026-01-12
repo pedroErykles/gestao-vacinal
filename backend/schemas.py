@@ -34,7 +34,7 @@ class UsuarioResponse(UsuarioBase):
 
 class BaseUsuarioBuscaResponse(BaseModel):
     id: uuid.UUID
-    nome_completo: str
+    nome: str
 
 # --- 1.1 Schemas Específicos por Papel ---
 
@@ -122,6 +122,7 @@ class VacinaBase(BaseModel):
     quantidade_doses: int
 
 class BuscaVacina(BaseModel): 
+    id: int
     nome: str
     fabricante: str
 

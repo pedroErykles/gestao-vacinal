@@ -40,7 +40,7 @@ def buscar_pacientes(termo: str = Query(..., min_length=3), db: Session = Depend
     results = (
         db.query(
             model.Usuario.id,
-            nome_completo.label("nome_completo")
+            nome_completo.label("nome")
             )
         .filter(
             Usuario.role == RoleEnum.PACIENTE,
@@ -64,7 +64,7 @@ def fuzzysearch_profissional(termo: str = Query(..., min_length=3), db: Session 
     results = (
         db.query(
             model.Usuario.id,
-            nome_completo.label("nome_completo")
+            nome_completo.label("nome")
             )
         .filter(
             Usuario.role == RoleEnum.PROFISSIONAL,
@@ -88,7 +88,7 @@ def fuzzysearch_gestores(termo: str = Query(..., min_length=3), db: Session = De
     results = (
         db.query(
             model.Usuario.id,
-            nome_completo.label("nome_completo")
+            nome_completo.label("nome")
             )
         .filter(
             Usuario.role == RoleEnum.GESTOR,
@@ -114,7 +114,7 @@ def fuzzysearch_admin(termo: str = Query(..., min_length=3), db: Session = Depen
     results = (
         db.query(
             model.Usuario.id,
-            nome_completo.label("nome_completo")
+            nome_completo.label("nome")
             )
         .filter(
             Usuario.role == RoleEnum.ADMIN,
