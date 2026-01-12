@@ -11,6 +11,7 @@ npm create vite@latest
 # Tailwind CSS
 ```bash
 npm install -D tailwindcss@3.4.17 postcss autoprefixer
+```
 
 # Instalar dependências
 ```bash
