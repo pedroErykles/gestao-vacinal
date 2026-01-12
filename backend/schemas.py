@@ -134,23 +134,22 @@ class VacinaResponse(VacinaBase):
     model_config = ConfigDict(from_attributes=True)
 
 class EstoqueCreate(BaseModel):
-    nome_unidade: str
     gestor_id: uuid.UUID
+    nome_unidade: str
 
 class EstoqueResponse(BaseModel):
     id_estoque: int
-    unidade: Optional[UnidadeResponse] = None
-    # Note que agora usamos GestorResponse (que herda de UsuarioResponse)
     gestor: Optional[GestorResponse] = None
+    unidade: Optional[UnidadeResponse] = None
     model_config = ConfigDict(from_attributes=True)
 
-class LoteCreate(BaseModel):
+class LoteCreate(BaseModel):    
+    vacina_id: int
+    estoque_id: int
+    fornecedor_cnpj: str
     validade: datetime
     data_chegada: datetime
     quantidade: int
-    estoque_id: int
-    vacina_id: int
-    fornecedor_cnpj: str
 
 class LoteResponse(LoteCreate):
     id_lote: int
@@ -161,45 +160,43 @@ class LoteResponse(LoteCreate):
 # --- 4. Aplicação e Dose ---
 
 class DoseCreate(BaseModel):
-    intervalo: int
-    numero: int
     vacina_id: int
+    numero: int
+    intervalo: int
 
 class DoseResponse(DoseCreate):
     id_dose: int
     model_config = ConfigDict(from_attributes=True)
 
-class AplicacaoCreate(BaseModel):
-    data: Optional[datetime] = None
-    paciente_id: uuid.UUID
+class AplicacaoCreate(BaseModel):    
     profissional_id: uuid.UUID
+    lote_id: int    
+    paciente_id: uuid.UUID
     admin_id: uuid.UUID
     unidade_nome: str
+    data_aplicacao: Optional[datetime] = None
     dose_id: int
-    lote_id: int
 
 class AplicacaoResponse(BaseModel):
     id_aplicacao: int
-    data: datetime
-
-    lote: Optional[int] = None #aqui é o id do lote apenas 
-    paciente: Optional[PacienteResponse] = None
     profissional: Optional[ProfissionalResponse] = None
+    lote: Optional[int] = None
+    paciente: Optional[PacienteResponse] = None
     admin: Optional[GestorResponse] = None
-    
-    dose: Optional[DoseResponse] = None
     unidade: Optional[UnidadeResponse] = None
-    
+    data_aplicacao: datetime
+    dose: Optional[DoseResponse] = None
+
     model_config = ConfigDict(from_attributes=True)
 
 
 # --- 5. Campanhas ---
 
 class CampanhaCreate(BaseModel):
+    admin_id: uuid.UUID
+    nome: str
     data_inicio: datetime
     data_fim: datetime
-    nome: str
-    admin_id: uuid.UUID
 
 class CampanhaResponse(CampanhaCreate):
     id: int

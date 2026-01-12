@@ -9,14 +9,14 @@ from sqlalchemy import Index, String, Integer, BigInteger, ForeignKey, DateTime,
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-# 1. Definimos os papeis possíveis
+# Definimos os papeis possíveis
 class RoleEnum(enum.Enum):
     ADMIN = "ADMIN"
     GESTOR = "GESTOR"
     PACIENTE = "PACIENTE"
     PROFISSIONAL = "PROFISSIONAL"
 
-# 2. Tabela Pai (Tudo que é COMUM a todos vai aqui)
+# Tabela Pai
 class Usuario(Base):
     __tablename__ = "usuario"
 
@@ -38,20 +38,15 @@ class Usuario(Base):
     telefone: Mapped[str] = mapped_column(String(30), nullable=False)
     cpf_usuario: Mapped[str] = mapped_column(String(13), nullable=False, unique=True)
     
-    # O campo discriminador (A tal da ROLE)
     role: Mapped[RoleEnum] = mapped_column(Enum(RoleEnum), nullable=False)
 
-    # Configuração do Polimorfismo
     __mapper_args__ = {
         "polymorphic_on": "role",
     }
 
-# 3. Tabelas Filhas (Só dados específicos)
-
+# Tabelas Filhas 
 class Paciente(Usuario):
     __tablename__ = "paciente"
-    
-    # O ID é FK para usuario.id e PK do paciente ao mesmo tempo
     id: Mapped[uuid.UUID] = mapped_column(ForeignKey("usuario.id"), primary_key=True)
 
     aplicacoes: Mapped[List["Aplicacao"]] = relationship(back_populates="paciente")
@@ -80,14 +75,13 @@ class Profissional(Usuario):
     __tablename__ = "profissional_de_saude"
     id: Mapped[uuid.UUID] = mapped_column(ForeignKey("usuario.id"), primary_key=True)
     
-    # Exemplo: CRM ou Registro profissional só existe aqui
-    garu_formacao: Mapped[str] = mapped_column(String(20), nullable=False)
+    grau_formacao: Mapped[str] = mapped_column(String(20), nullable=False)
 
     __mapper_args__ = {
         "polymorphic_identity": RoleEnum.PROFISSIONAL,
     }
-# --- Entidades Básicas ---
 
+# Entidades Básicas
 class Fabricante(Base):
     __tablename__ = "fabricante"
     cnpj_fabricante: Mapped[str] = mapped_column("cnpj_fabricante", String(14), primary_key=True)
@@ -147,84 +141,86 @@ class Vacina(Base):
     fabricante_cnpj: Mapped[str] = mapped_column(ForeignKey("fabricante.cnpj_fabricante"))
     fabricante: Mapped["Fabricante"] = relationship()
 
-# --- Logística ---
-
+# Logística
 class Estoque(Base): 
     __tablename__ = "estoque"
     id_estoque: Mapped[int] = mapped_column("id_estoque", Integer, primary_key=True, autoincrement=True)
     
-    # Correção: FK aponta para a tabela, Relationship carrega o objeto
+    gestor_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("gestor.id"))
+    gestor: Mapped["Gestor"] = relationship()
+
     nome_unidade: Mapped[str] = mapped_column(ForeignKey("unidade_de_saude.id"))
     unidade: Mapped["UnidadeDeSaude"] = relationship()
     
-    gestor_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("gestor.id"))
-    gestor: Mapped["Gestor"] = relationship()
 
 class Lote(Base): 
     __tablename__ = "lote"
     id_lote: Mapped[int] = mapped_column("id_lote", BigInteger, primary_key=True, autoincrement=True)
+    
+    vacina_id: Mapped[int] = mapped_column(ForeignKey("vacina.codigo_vacina"))
+    vacina: Mapped["Vacina"] = relationship()
+    
+    estoque_id: Mapped[int] = mapped_column(ForeignKey("estoque.id_estoque"))
+    estoque: Mapped["Estoque"] = relationship()
+
+    fornecedor_cnpj: Mapped[str] = mapped_column(ForeignKey("fornecedor.cnpj_fornecedor"))
+    fornecedor: Mapped["Fornecedor"] = relationship()
+
     validade: Mapped[datetime.datetime] = mapped_column(DateTime, nullable=False)
     data_chegada: Mapped[datetime.datetime] = mapped_column(DateTime, nullable=False)
     quantidade: Mapped[int] = mapped_column(Integer, nullable=False)
     
-    estoque_id: Mapped[int] = mapped_column(ForeignKey("estoque.id_estoque"))
-    estoque: Mapped["Estoque"] = relationship()
-    
-    vacina_id: Mapped[int] = mapped_column(ForeignKey("vacina.codigo_vacina"))
-    vacina: Mapped["Vacina"] = relationship()
-    
-    fornecedor_cnpj: Mapped[str] = mapped_column(ForeignKey("fornecedor.cnpj_fornecedor"))
-    fornecedor: Mapped["Fornecedor"] = relationship()
 
-# --- Aplicação ---
-
+# Aplicação
 class Dose(Base): 
-    __tablename__ = "dose" # Faltava isso
+    __tablename__ = "dose"
     id_dose: Mapped[int] = mapped_column("id_dose", BigInteger, primary_key=True, autoincrement=True)
-    intervalo: Mapped[int] = mapped_column(Integer, nullable=False)
-    numero: Mapped[int] = mapped_column(Integer)
     
     vacina_id: Mapped[int] = mapped_column(ForeignKey("vacina.codigo_vacina"))
     vacina: Mapped["Vacina"] = relationship()
+
+    numero: Mapped[int] = mapped_column(Integer)
+    intervalo: Mapped[int] = mapped_column(Integer, nullable=False)
 
 class Aplicacao(Base): 
     __tablename__ = "aplicacao"
     id_aplicacao: Mapped[int] = mapped_column("id_aplicação", BigInteger, primary_key=True, autoincrement=True)
-    data: Mapped[datetime.datetime] = mapped_column(DateTime, default=datetime.datetime.now)
-    
-    # Todas as FKs corrigidas para apontar para Tabela.Coluna
-    paciente_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("paciente.id"))
-    paciente: Mapped["Paciente"] = relationship(back_populates="aplicacoes")
     
     profissional_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("profissional_de_saude.id"))
     profissional: Mapped["Profissional"] = relationship()
-    
+
+    lote_id: Mapped[int] = mapped_column(ForeignKey("lote.id_lote"))
+    lote: Mapped["Lote"] = relationship()
+
+    paciente_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("paciente.id"))
+    paciente: Mapped["Paciente"] = relationship(back_populates="aplicacoes")
+
     admin_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("admin.id"))
     admin: Mapped["Admin"] = relationship()
     
     unidade_nome: Mapped[str] = mapped_column(ForeignKey("unidade_de_saude.id"))
     unidade: Mapped["UnidadeDeSaude"] = relationship()
     
+    data_aplicacao: Mapped[datetime.datetime] = mapped_column(DateTime, default=datetime.datetime.now)
+
     dose_id: Mapped[int] = mapped_column(ForeignKey("dose.id_dose"))
     dose: Mapped["Dose"] = relationship()
 
-    lote_id: Mapped[int] = mapped_column(ForeignKey("lote.id_lote"))
-    lote: Mapped["Lote"] = relationship()
 
-# --- Campanhas ---
+# Campanhas de Vacinação
 
 class Campanha(Base):
     __tablename__ = "campanha"
     id_campanha: Mapped[int] = mapped_column("id_campanha", Integer, autoincrement=True, primary_key=True)
-    data_inicio: Mapped[datetime.datetime] = mapped_column(DateTime, nullable=False)
-    data_fim: Mapped[datetime.datetime] = mapped_column(DateTime, nullable=False)
-    nome: Mapped[str] = mapped_column("nome_campanha", String(100), nullable=False)
 
     admin_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("admin.id"))
     admin: Mapped["Admin"] = relationship()
+    
+    nome: Mapped[str] = mapped_column("nome_campanha", String(100), nullable=False)    
+    data_inicio: Mapped[datetime.datetime] = mapped_column(DateTime, nullable=False)
+    data_fim: Mapped[datetime.datetime] = mapped_column(DateTime, nullable=False)
 
 class Publicacao(Base): 
     __tablename__ = "publicacao_campanha"
-    # Correção: As FKs devem apontar para 'tabela.coluna_pk'
     campanha_id: Mapped[int] = mapped_column(ForeignKey("campanha.id_campanha"), primary_key=True)
     vacina_id: Mapped[int] = mapped_column(ForeignKey("vacina.codigo_vacina"), primary_key=True)
