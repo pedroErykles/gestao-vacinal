@@ -13,5 +13,7 @@ npm install -D tailwindcss@3.4.17 postcss autoprefixer
 npm install
 
 # Bibliotecas
+```bash
 npm install lucide-react
 npm install recharts
+```
