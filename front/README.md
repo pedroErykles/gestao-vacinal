@@ -3,8 +3,8 @@
 # Criação do projeto
 npm create vite@latest
 # Escolher:
-# - React
-# - TypeScript
+- React
+- TypeScript
 
 # Tailwind CSS
 npm install -D tailwindcss@3.4.17 postcss autoprefixer
