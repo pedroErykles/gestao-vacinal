@@ -84,21 +84,6 @@ export function RelatoriosPage() {
     })).sort((a, b) => b.total - a.total);
   }, [aplicacoesFiltradas]);
 
-  // Dados para gráfico de doses
-  const distribuicaoDoses = useMemo(() => {
-    const dosesCount: { [key: number]: number } = {};
-    
-    aplicacoesFiltradas.forEach(aplicacao => {
-      const dose = aplicacao.dose;
-      dosesCount[dose] = (dosesCount[dose] || 0) + 1;
-    });
-    
-    return Object.entries(dosesCount).map(([dose, count]) => ({
-      dose: `${dose}ª dose`,
-      total: count,
-    })).sort((a, b) => parseInt(a.dose) - parseInt(b.dose));
-  }, [aplicacoesFiltradas]);
-
   // Estatísticas gerais
   const stats = useMemo(() => {
     const totalAplicacoes = aplicacoesFiltradas.length;
@@ -380,20 +365,6 @@ export function RelatoriosPage() {
             </BarChart>
           </ResponsiveContainer>
         </div>
-      </div>
-
-      {/* Gráfico de Distribuição de Doses */}
-      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-6">
-        <h2 className="text-xl mb-6">Distribuição por Dose</h2>
-        <ResponsiveContainer width="100%" height={300}>
-          <BarChart data={distribuicaoDoses}>
-            <CartesianGrid strokeDasharray="3 3" />
-            <XAxis dataKey="dose" />
-            <YAxis />
-            <Tooltip />
-            <Bar dataKey="total" fill="#8B5CF6" name="Aplicações" />
-          </BarChart>
-        </ResponsiveContainer>
       </div>
 
       {/* Tabela Resumida */}
