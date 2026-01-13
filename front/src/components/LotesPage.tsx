@@ -150,7 +150,7 @@ export function LotesPage() {
     const hoje = new Date();
     const vencimento = new Date(dataValidade);
     const diasParaVencer = Math.floor((vencimento.getTime() - hoje.getTime()) / (1000 * 60 * 60 * 24));
-    return diasParaVencer <= 30 && diasParaVencer > 0;
+    return diasParaVencer <= 30 && diasParaVencer >= 0;
   };
 
   const getLoteStatus = (lote: Lote) => {
