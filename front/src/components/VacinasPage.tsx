@@ -1,46 +1,97 @@
-import React, { useState, useMemo } from 'react';
-import { useApp } from '../context/AppContext';
-import { Plus, Search, Edit2, Trash2, Syringe } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Plus, Edit2, Trash2, Syringe } from 'lucide-react';
 import { toast } from 'sonner';
 
+// Serviços e Utilitários
+import api from '../lib/axios'; // Assumindo que seu axios está aqui
+import { vacinasService, type VacinaResponse, type SearchVacinaResponse } from '../services/vacina/vacina';
+import { AsyncSearchSelect } from '../components/AsyncSearchSelect'; // Assumindo que você salvou o componente aqui
+
+// --- INTERFACES LOCAIS PARA O FORMULÁRIO ---
+// (Necessário pois o backend retorna snake_case e o form usa camelCase/strings)
+
+interface Fabricante {
+  cnpj: string;
+  nome: string;
+  telefone: string;
+}
+
 export function VacinasPage() {
-  const { vacinas, fabricantes, addVacina, updateVacina, deleteVacina, addFabricante } = useApp();
-  
-  // States para filtros
-  const [searchTerm, setSearchTerm] = useState('');
+  // --- STATES DE DADOS (Vindos da API) ---
+  const [vacinas, setVacinas] = useState<VacinaResponse[]>([]);
+  const [fabricantes, setFabricantes] = useState<Fabricante[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+
+  // --- STATES DE FILTRO ---
+  // Agora o searchTerm é controlado pelo AsyncSearchSelect (pode ser um objeto de busca ou null)
+  const [selectedSearchItem, setSelectedSearchItem] = useState<SearchVacinaResponse | null>(null);
   const [filterFabricante, setFilterFabricante] = useState('');
   const [filterDoses, setFilterDoses] = useState('');
-  
-  // States para dialog
+
+  // --- STATES DE DIALOGS ---
   const [showModal, setShowModal] = useState(false);
   const [showFabricanteModal, setShowFabricanteModal] = useState(false);
-  const [editingVacina, setEditingVacina] = useState<any>(null);
-  
-  // States para formulário de vacina
+  const [editingVacina, setEditingVacina] = useState<VacinaResponse | null>(null);
+
+  // --- FORM STATES ---
   const [formData, setFormData] = useState({
     nome: '',
-    fabricanteId: '',
+    fabricanteId: '', // Isso armazenará o CNPJ
     numeroDoses: '1',
     descricao: '',
     intervaloMinimoDias: '',
+    publico_alvo: 'Geral', // Valor padrão
+    doenca: 'COVID-19' // Valor padrão ou campo novo se quiser adicionar no form
   });
 
-  // States para formulário de fabricante
   const [fabricanteFormData, setFabricanteFormData] = useState({
     nome: '',
     cnpj: '',
-    contato: '',
+    telefone: '',
   });
 
-  // Vacinas filtradas
-  const vacinasFiltradas = useMemo(() => {
-    return vacinas.filter((vacina) => {
-      const matchSearch = vacina.nome.toLowerCase().includes(searchTerm.toLowerCase());
-      const matchFabricante = !filterFabricante || vacina.fabricanteId === filterFabricante;
-      const matchDoses = !filterDoses || vacina.numeroDoses.toString() === filterDoses;
-      return matchSearch && matchFabricante && matchDoses;
-    });
-  }, [vacinas, searchTerm, filterFabricante, filterDoses]);
+  // --- CARREGAMENTO INICIAL ---
+  const loadData = async () => {
+    setIsLoading(true);
+    try {
+      // Carrega vacinas e fabricantes em paralelo
+      const [listaVacinas, listaFabricantes] = await Promise.all([
+        vacinasService.listar(),
+        api.get<Fabricante[]>('/fabricantes').then(res => res.data)
+      ]);
+      
+      setVacinas(listaVacinas);
+      setFabricantes(listaFabricantes);
+    } catch (error) {
+      toast.error('Erro ao carregar dados.');
+      console.error(error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadData();
+  }, []);
+
+  // --- LÓGICA DE FILTRAGEM ---
+  const vacinasFiltradas = vacinas.filter((vacina) => {
+    // 1. Filtro por Busca (AsyncSearchSelect)
+    // Se tiver um item selecionado na busca, só mostra ele. Se não, mostra todos.
+    const matchSearch = selectedSearchItem 
+      ? vacina.codigo_vacina === selectedSearchItem.id 
+      : true;
+
+    // 2. Filtro por Fabricante (Dropdown)
+    const matchFabricante = !filterFabricante || vacina.fabricante?.cnpj === filterFabricante;
+    
+    // 3. Filtro por Doses
+    const matchDoses = !filterDoses || vacina.quantidade_doses.toString() === filterDoses;
+
+    return matchSearch && matchFabricante && matchDoses;
+  });
+
+  // --- HANDLERS DE FORMULÁRIO ---
 
   const resetForm = () => {
     setFormData({
@@ -49,26 +100,37 @@ export function VacinasPage() {
       numeroDoses: '1',
       descricao: '',
       intervaloMinimoDias: '',
+      publico_alvo: 'Geral',
+      doenca: 'Prevenção Geral'
     });
     setEditingVacina(null);
   };
 
   const resetFabricanteForm = () => {
-    setFabricanteFormData({
-      nome: '',
-      cnpj: '',
-      contato: '',
-    });
+    setFabricanteFormData({ nome: '', cnpj: '', telefone: '' });
   };
 
-  const handleOpenModal = (vacina?: any) => {
+  const handleCloseFabricanteModal = () => {
+    setShowFabricanteModal(false);
+    resetFabricanteForm();
+    
+    // Se o usuário estava preenchendo uma vacina antes, reabre o modal dela
+    // para ele não perder o fluxo
+    if (formData.nome || formData.descricao) {
+      setShowModal(true);
+    }
+  };
+
+  const handleOpenModal = (vacina?: VacinaResponse) => {
     if (vacina) {
       setFormData({
         nome: vacina.nome,
-        fabricanteId: vacina.fabricanteId,
-        numeroDoses: vacina.numeroDoses.toString(),
-        descricao: vacina.descricao || '',
-        intervaloMinimoDias: vacina.intervaloMinimoDias?.toString() || '',
+        fabricanteId: vacina.fabricante?.cnpj || '',
+        numeroDoses: vacina.quantidade_doses.toString(),
+        descricao: (vacina as any).descricao || '', // Cast any caso a interface TS ainda não tenha descricao
+        intervaloMinimoDias: (vacina as any).intervaloMinimoDias?.toString() || '', // Ajustar conforme backend real
+        publico_alvo: vacina.publico_alvo,
+        doenca: vacina.doenca
       });
       setEditingVacina(vacina);
     } else {
@@ -82,35 +144,9 @@ export function VacinasPage() {
     resetForm();
   };
 
-  const handleOpenFabricanteModal = () => {
-    resetFabricanteForm();
-    setShowFabricanteModal(true);
-  };
+  // --- ACTIONS (CRUD) ---
 
-  const handleCloseFabricanteModal = () => {
-    setShowFabricanteModal(false);
-    resetFabricanteForm();
-  };
-
-  const validarCNPJ = (cnpj: string) => {
-    const cnpjLimpo = cnpj.replace(/[^\d]/g, '');
-    return cnpjLimpo.length === 14;
-  };
-
-  const handleSubmitFabricante = (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    if (!validarCNPJ(fabricanteFormData.cnpj)) {
-      toast.error('CNPJ inválido');
-      return;
-    }
-
-    addFabricante(fabricanteFormData);
-    toast.success('Fabricante cadastrado com sucesso!');
-    handleCloseFabricanteModal();
-  };
-
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
     if (!formData.nome || !formData.fabricanteId) {
@@ -118,57 +154,85 @@ export function VacinasPage() {
       return;
     }
 
-    const numeroDoses = parseInt(formData.numeroDoses);
-    if (isNaN(numeroDoses) || numeroDoses < 1 || numeroDoses > 10) {
-      toast.error('Número de doses deve estar entre 1 e 10');
-      return;
-    }
-
-    const intervaloMinimoDias = formData.intervaloMinimoDias ? parseInt(formData.intervaloMinimoDias) : undefined;
-    if (intervaloMinimoDias && (isNaN(intervaloMinimoDias) || intervaloMinimoDias < 0)) {
-      toast.error('Intervalo mínimo deve ser um número positivo');
-      return;
-    }
-
-    const vacinaData = {
+    const qtdDoses = parseInt(formData.numeroDoses);
+    
+    const payload = {
       nome: formData.nome,
-      fabricanteId: formData.fabricanteId,
-      numeroDoses,
-      descricao: formData.descricao,
-      intervaloMinimoDias,
+      fabricante_cnpj: formData.fabricanteId, // Mapeando para o campo do backend
+      quantidade_doses: qtdDoses,
+      publico_alvo: formData.publico_alvo,
+      doenca: formData.doenca,
+      // Se o backend aceitar descricao, adicione aqui. 
+      // Nota: O schema VacinaCreate fornecido anteriormente não tinha 'descricao', 
+      // mas você disse que adicionou. Adicione no payload se o backend esperar.
+      descricao: formData.descricao 
     };
 
-    if (editingVacina) {
-      updateVacina(editingVacina.id, vacinaData);
-      toast.success('Vacina atualizada com sucesso!');
-    } else {
-      addVacina(vacinaData);
-      toast.success('Vacina cadastrada com sucesso!');
+    try {
+      if (editingVacina) {
+        await vacinasService.atualizar(editingVacina.codigo_vacina, payload);
+        toast.success('Vacina atualizada com sucesso!');
+      } else {
+        await vacinasService.criar(payload);
+        toast.success('Vacina cadastrada com sucesso!');
+      }
+      loadData(); // Recarrega a lista
+      handleCloseModal();
+    } catch (error) {
+      console.error(error);
+      toast.error('Erro ao salvar vacina.');
     }
-    
-    handleCloseModal();
   };
 
-  const handleDelete = (vacina: any) => {
+  const handleDelete = async (vacina: VacinaResponse) => {
     if (window.confirm(`Tem certeza que deseja excluir a vacina "${vacina.nome}"?`)) {
-      deleteVacina(vacina.id);
-      toast.success('Vacina excluída com sucesso!');
+      try {
+        await vacinasService.deletar(vacina.codigo_vacina);
+        toast.success('Vacina excluída com sucesso!');
+        loadData();
+      } catch (error: any) {
+        toast.error(error.response?.data?.detail || 'Erro ao excluir vacina.');
+      }
     }
   };
 
-  const handleClearFilters = () => {
-    setSearchTerm('');
-    setFilterFabricante('');
-    setFilterDoses('');
+  // --- ACTIONS FABRICANTE ---
+
+  const validarCNPJ = (cnpj: string) => {
+    const cnpjLimpo = cnpj.replace(/[^\d]/g, '');
+    return cnpjLimpo.length === 14;
   };
 
-  const getFabricanteNome = (fabricanteId: string) => {
-    return fabricantes.find(f => f.id === fabricanteId)?.nome || 'N/A';
+  const handleSubmitFabricante = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (!validarCNPJ(fabricanteFormData.cnpj)) {
+      toast.error('CNPJ inválido (deve ter 14 dígitos)');
+      return;
+    }
+
+    try {
+      await api.post('/fabricantes', {
+        cnpj: fabricanteFormData.cnpj,
+        nome: fabricanteFormData.nome,
+        telefone: fabricanteFormData.telefone
+      });
+      toast.success('Fabricante cadastrado com sucesso!');
+      
+      // Atualiza lista de fabricantes e fecha modal
+      const fabs = await api.get<Fabricante[]>('/fabricantes');
+      setFabricantes(fabs.data);
+      handleCloseFabricanteModal();
+    } catch (error: any) {
+      toast.error(error.response?.data?.detail || 'Erro ao criar fabricante.');
+    }
   };
 
-  // Estatísticas
-  const totalVacinas = vacinas.length;
-  const totalFabricantes = fabricantes.length;
+  // --- UTILS ---
+  const getFabricanteNome = (cnpj: string | undefined) => {
+    if (!cnpj) return 'N/A';
+    return fabricantes.find(f => f.cnpj === cnpj)?.nome || cnpj;
+  };
 
   return (
     <div className="p-8">
@@ -184,7 +248,7 @@ export function VacinasPage() {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-gray-600 text-sm">Total de Vacinas</p>
-              <p className="text-3xl mt-2">{totalVacinas}</p>
+              <p className="text-3xl mt-2">{vacinas.length}</p>
             </div>
             <div className="bg-blue-100 p-3 rounded-lg">
               <Syringe className="w-8 h-8 text-blue-600" />
@@ -196,7 +260,7 @@ export function VacinasPage() {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-gray-600 text-sm">Fabricantes</p>
-              <p className="text-3xl mt-2">{totalFabricantes}</p>
+              <p className="text-3xl mt-2">{fabricantes.length}</p>
             </div>
             <div className="bg-green-100 p-3 rounded-lg">
               <Syringe className="w-8 h-8 text-green-600" />
@@ -219,57 +283,80 @@ export function VacinasPage() {
 
       {/* Filtros e Ações */}
       <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-6">
-        <div className="flex flex-col md:flex-row gap-4 mb-4">
-          <div className="flex-1 relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
-            <input
-              type="text"
-              placeholder="Buscar por nome da vacina..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg"
+        <div className="flex flex-col md:flex-row gap-4 mb-4 items-end">
+          
+          {/* Novo Componente de Busca Assíncrona */}
+          <div className="flex-1 w-full">
+            <AsyncSearchSelect<SearchVacinaResponse>
+              label="Buscar Vacina"
+              placeholder="Digite o nome para buscar..."
+              fetchData={vacinasService.buscarVacinaPeloNome}
+              getDisplayValue={(item) => `${item.nome} (${item.fabricante_nome})`}
+              renderItem={(item) => (
+                <div className="flex flex-col">
+                  <span className="font-medium text-gray-900">{item.nome}</span>
+                  <span className="text-xs text-gray-500">{item.fabricante_nome}</span>
+                </div>
+              )}
+              onSelect={(item) => setSelectedSearchItem(item)}
             />
           </div>
 
           <div className="flex gap-4">
-            <select
-              value={filterFabricante}
-              onChange={(e) => setFilterFabricante(e.target.value)}
-              className="px-4 py-2 border border-gray-300 rounded-lg bg-white"
-            >
-              <option value="">Todos os fabricantes</option>
-              {fabricantes.map(f => (
-                <option key={f.id} value={f.id}>{f.nome}</option>
-              ))}
-            </select>
+            <div className="flex flex-col">
+               <label className="text-sm font-medium text-gray-700 mb-2">Filtrar Fabricante</label>
+               <select
+                value={filterFabricante}
+                onChange={(e) => setFilterFabricante(e.target.value)}
+                className="px-4 py-2 border border-gray-300 rounded-lg bg-white h-[42px]"
+              >
+                <option value="">Todos</option>
+                {fabricantes.map(f => (
+                  <option key={f.cnpj} value={f.cnpj}>{f.nome}</option>
+                ))}
+              </select>
+            </div>
 
-            <select
-              value={filterDoses}
-              onChange={(e) => setFilterDoses(e.target.value)}
-              className="px-4 py-2 border border-gray-300 rounded-lg bg-white"
-            >
-              <option value="">Todas as doses</option>
-              <option value="1">1 dose</option>
-              <option value="2">2 doses</option>
-              <option value="3">3 doses</option>
-            </select>
+            <div className="flex flex-col">
+              <label className="text-sm font-medium text-gray-700 mb-2">Doses</label>
+              <select
+                value={filterDoses}
+                onChange={(e) => setFilterDoses(e.target.value)}
+                className="px-4 py-2 border border-gray-300 rounded-lg bg-white h-[42px]"
+              >
+                <option value="">Todas</option>
+                <option value="1">1 dose</option>
+                <option value="2">2 doses</option>
+                <option value="3">3 doses</option>
+              </select>
+            </div>
 
-            <button
-              onClick={() => handleOpenModal()}
-              className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2 whitespace-nowrap"
-            >
-              <Plus className="w-5 h-5" />
-              Nova Vacina
-            </button>
+            <div className="flex items-end">
+                <button
+                onClick={() => handleOpenModal()}
+                className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2 whitespace-nowrap h-[42px]"
+                >
+                <Plus className="w-5 h-5" />
+                Nova Vacina
+                </button>
+            </div>
           </div>
         </div>
 
-        {(searchTerm || filterFabricante || filterDoses) && (
+        {(selectedSearchItem || filterFabricante || filterDoses) && (
           <button
-            onClick={handleClearFilters}
+            onClick={() => {
+                setSelectedSearchItem(null); // Limpa a busca do componente (precisaria resetar o input visualmente, mas limpando o state já reseta o filtro)
+                setFilterFabricante('');
+                setFilterDoses('');
+                // Hack para forçar re-render do componente de busca limpo se necessário, 
+                // mas idealmente passamos uma prop 'value' para o AsyncSelect.
+                // Como o componente AsyncSearchSelect fornecido usa estado interno para query, 
+                // clicar no 'X' dele é o caminho padrão. Aqui limpamos os filtros da tabela.
+            }}
             className="text-sm text-blue-600 hover:underline"
           >
-            Limpar filtros
+            Limpar filtros da tabela
           </button>
         )}
       </div>
@@ -283,13 +370,18 @@ export function VacinasPage() {
                 <th className="px-6 py-4 text-left text-sm text-gray-600">Nome</th>
                 <th className="px-6 py-4 text-left text-sm text-gray-600">Fabricante</th>
                 <th className="px-6 py-4 text-left text-sm text-gray-600">Nº Doses</th>
-                <th className="px-6 py-4 text-left text-sm text-gray-600">Intervalo (dias)</th>
                 <th className="px-6 py-4 text-left text-sm text-gray-600">Descrição</th>
                 <th className="px-6 py-4 text-left text-sm text-gray-600">Ações</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200">
-              {vacinasFiltradas.length === 0 ? (
+              {isLoading ? (
+                  <tr>
+                    <td colSpan={6} className="px-6 py-8 text-center text-gray-500">
+                      Carregando dados...
+                    </td>
+                  </tr>
+              ) : vacinasFiltradas.length === 0 ? (
                 <tr>
                   <td colSpan={6} className="px-6 py-8 text-center text-gray-500">
                     Nenhuma vacina encontrada
@@ -297,22 +389,22 @@ export function VacinasPage() {
                 </tr>
               ) : (
                 vacinasFiltradas.map((vacina) => (
-                  <tr key={vacina.id} className="hover:bg-gray-50">
+                  <tr key={vacina.codigo_vacina} className="hover:bg-gray-50">
                     <td className="px-6 py-4">
                       <span className="font-medium">{vacina.nome}</span>
-                    </td>
-                    <td className="px-6 py-4 text-sm">{getFabricanteNome(vacina.fabricanteId)}</td>
-                    <td className="px-6 py-4">
-                      <span className="px-2 py-1 text-xs rounded bg-blue-100 text-blue-700">
-                        {vacina.numeroDoses} {vacina.numeroDoses === 1 ? 'dose' : 'doses'}
-                      </span>
+                      <div className="text-xs text-gray-400">{vacina.doenca}</div>
                     </td>
                     <td className="px-6 py-4 text-sm">
-                      {vacina.intervaloMinimoDias ? `${vacina.intervaloMinimoDias} dias` : '-'}
+                        {vacina.fabricante?.nome || 'Desconhecido'}
+                    </td>
+                    <td className="px-6 py-4">
+                      <span className="px-2 py-1 text-xs rounded bg-blue-100 text-blue-700">
+                        {vacina.quantidade_doses} {vacina.quantidade_doses === 1 ? 'dose' : 'doses'}
+                      </span>
                     </td>
                     <td className="px-6 py-4 text-sm text-gray-600">
-                      {vacina.descricao ? (
-                        <span className="max-w-xs truncate block">{vacina.descricao}</span>
+                      {(vacina as any).descricao ? (
+                        <span className="max-w-xs truncate block">{(vacina as any).descricao}</span>
                       ) : (
                         <span className="text-gray-400">-</span>
                       )}
@@ -343,7 +435,7 @@ export function VacinasPage() {
         </div>
       </div>
 
-      {/* Modal de Cadastro/Edição */}
+      {/* Modal de Cadastro/Edição de VACINA */}
       {showModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto">
@@ -372,10 +464,13 @@ export function VacinasPage() {
                     <label className="block text-sm">Fabricante *</label>
                     <button
                       type="button"
-                      onClick={handleOpenFabricanteModal}
+                      onClick={() => {
+                          setShowModal(false); // Fecha este modal temporariamente ou sobrepoe
+                          setShowFabricanteModal(true);
+                      }}
                       className="text-xs text-blue-600 hover:underline"
                     >
-                      + Adicionar fabricante
+                      + Novo
                     </button>
                   </div>
                   <select
@@ -386,7 +481,7 @@ export function VacinasPage() {
                   >
                     <option value="">Selecione...</option>
                     {fabricantes.map(f => (
-                      <option key={f.id} value={f.id}>{f.nome}</option>
+                      <option key={f.cnpj} value={f.cnpj}>{f.nome}</option>
                     ))}
                   </select>
                 </div>
@@ -403,18 +498,26 @@ export function VacinasPage() {
                     required
                   />
                 </div>
+                
+                {/* Campos adicionais exigidos pelo backend/interface */}
+                <div>
+                  <label className="block text-sm mb-2">Público Alvo</label>
+                  <input
+                    type="text"
+                    value={formData.publico_alvo}
+                    onChange={(e) => setFormData({ ...formData, publico_alvo: e.target.value })}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg"
+                  />
+                </div>
 
                 <div>
-                  <label className="block text-sm mb-2">Intervalo Mínimo (dias)</label>
+                  <label className="block text-sm mb-2">Doença</label>
                   <input
-                    type="number"
-                    min="0"
-                    value={formData.intervaloMinimoDias}
-                    onChange={(e) => setFormData({ ...formData, intervaloMinimoDias: e.target.value })}
+                    type="text"
+                    value={formData.doenca}
+                    onChange={(e) => setFormData({ ...formData, doenca: e.target.value })}
                     className="w-full px-4 py-2 border border-gray-300 rounded-lg"
-                    placeholder="Ex: 28"
                   />
-                  <p className="text-xs text-gray-500 mt-1">Intervalo mínimo entre doses em dias</p>
                 </div>
 
                 <div className="md:col-span-2">
@@ -424,7 +527,7 @@ export function VacinasPage() {
                     onChange={(e) => setFormData({ ...formData, descricao: e.target.value })}
                     className="w-full px-4 py-2 border border-gray-300 rounded-lg"
                     rows={3}
-                    placeholder="Descrição da vacina..."
+                    placeholder="Descrição técnica..."
                   />
                 </div>
               </div>
@@ -449,7 +552,7 @@ export function VacinasPage() {
         </div>
       )}
 
-      {/* Modal de Cadastro de Fabricante */}
+      {/* Modal de Cadastro de FABRICANTE */}
       {showFabricanteModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-lg max-w-xl w-full">
@@ -483,11 +586,11 @@ export function VacinasPage() {
                 </div>
 
                 <div>
-                  <label className="block text-sm mb-2">Contato *</label>
+                  <label className="block text-sm mb-2">Telefone *</label>
                   <input
                     type="text"
-                    value={fabricanteFormData.contato}
-                    onChange={(e) => setFabricanteFormData({ ...fabricanteFormData, contato: e.target.value })}
+                    value={fabricanteFormData.telefone}
+                    onChange={(e) => setFabricanteFormData({ ...fabricanteFormData, telefone: e.target.value })}
                     className="w-full px-4 py-2 border border-gray-300 rounded-lg"
                     placeholder="(00) 0000-0000"
                     required
@@ -498,7 +601,11 @@ export function VacinasPage() {
               <div className="flex gap-4 mt-6">
                 <button
                   type="button"
-                  onClick={handleCloseFabricanteModal}
+                  onClick={() => {
+                    setShowFabricanteModal(false);
+                    // Se estiver criando vacina, reabre o modal da vacina
+                    if (formData.nome) setShowModal(true);
+                  }}
                   className="flex-1 px-6 py-2 border border-gray-300 rounded-lg hover:bg-gray-50"
                 >
                   Cancelar
