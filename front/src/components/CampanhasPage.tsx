@@ -2,43 +2,35 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { Plus, Search, Edit2, Trash2, Calendar, Users, CheckCircle, XCircle, Loader2, X } from 'lucide-react';
 import { toast } from 'sonner';
 
-// Services
 import { campanhasService, type CampanhaResponse } from '../services/campanha/campanha';
 import { vacinasService, type VacinaResponse } from '../services/vacina/vacina';
 
-// Componente de Busca (Reutilizando o que você já tem)
 import { AsyncSearchSelect } from '../components/AsyncSearchSelect';
 
-// UUID Fixo para simular admin
-const ADMIN_ID_FIXO = "748c1283-a6f7-4ae8-9966-e6648ea583e9"; 
+const ADMIN_ID_FIXO = "88967ab8-cd93-44c6-b64b-d3e869f20c9d"; 
 
-interface CampanhaUI extends CampanhaResponse {
-  // Interface auxiliar
-}
+interface CampanhaUI extends CampanhaResponse {}
 
 export function CampanhasPage() {
   const [campanhas, setCampanhas] = useState<CampanhaUI[]>([]);
   const [vacinas, setVacinas] = useState<VacinaResponse[]>([]);
   const [isLoading, setIsLoading] = useState(false);
 
-  // States Visuais
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState('todas');
   const [showModal, setShowModal] = useState(false);
   const [editingCampanha, setEditingCampanha] = useState<CampanhaUI | null>(null);
   
-  // Form Data
   const [formData, setFormData] = useState({
     nome: '',
     dataInicio: '',
     dataFim: '',
     publicoAlvo: '',
     descricao: '',
-    vacinas: [] as string[], // Armazena IDs como string
+    vacinas: [] as string[],
     ativa: true,
   });
 
-  // Load Data
   const loadData = async () => {
     setIsLoading(true);
     try {
@@ -58,12 +50,10 @@ export function CampanhasPage() {
 
   useEffect(() => { loadData(); }, []);
 
-  // --- Lógica Especial de Busca de Vacinas (Client-Side) ---
-  // Filtra as vacinas pelo nome E remove as que já foram selecionadas
   const buscarVacinasDisponiveis = async (query: string) => {
     return vacinas.filter(v => 
       v.nome.toLowerCase().includes(query.toLowerCase()) && 
-      !formData.vacinas.includes(v.codigo_vacina.toString()) // <--- O Segredo: Exclui as já selecionadas
+      !formData.vacinas.includes(v.codigo_vacina.toString())
     );
   };
 
@@ -71,7 +61,6 @@ export function CampanhasPage() {
     if (!vacina) return;
     const id = vacina.codigo_vacina.toString();
     
-    // Adiciona na lista se não estiver lá (dupla verificação)
     if (!formData.vacinas.includes(id)) {
       setFormData(prev => ({
         ...prev,
@@ -86,9 +75,7 @@ export function CampanhasPage() {
       vacinas: prev.vacinas.filter(id => id !== idToRemove)
     }));
   };
-  // -------------------------------------------------------
 
-  // Filtros da Tabela Principal
   const campanhasFiltradas = useMemo(() => {
     return campanhas.filter((campanha) => {
       const termo = searchTerm.toLowerCase();
@@ -110,7 +97,6 @@ export function CampanhasPage() {
     });
   }, [campanhas, searchTerm, filterStatus]);
 
-  // Handlers do Modal
   const resetForm = () => {
     setFormData({
       nome: '',
@@ -189,7 +175,6 @@ export function CampanhasPage() {
     }
   };
 
-  // Handlers de Ação
   const handleDelete = async (campanha: CampanhaUI) => {
     if (window.confirm(`Excluir "${campanha.nome}"?`)) {
       try {
@@ -217,7 +202,6 @@ export function CampanhasPage() {
     } catch (error) { toast.error("Erro ao alterar status."); }
   };
 
-  // Helpers
   const getCampanhaStatus = (campanha: CampanhaUI) => {
     const now = new Date();
     const inicio = new Date(campanha.data_inicio);
@@ -237,13 +221,11 @@ export function CampanhasPage() {
 
   return (
     <div className="p-8">
-      {/* Header */}
       <div className="mb-8">
         <h1 className="text-3xl mb-2">Gestão de Campanhas</h1>
         <p className="text-gray-600">Cadastro e gerenciamento de campanhas de vacinação</p>
       </div>
 
-      {/* Cards de Estatísticas */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
         <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
           <div className="flex items-center justify-between">
@@ -283,7 +265,6 @@ export function CampanhasPage() {
         </div>
       </div>
 
-      {/* Barra de Ações */}
       <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-6">
         <div className="flex flex-col md:flex-row gap-4">
           <div className="flex-1 relative">
@@ -317,7 +298,6 @@ export function CampanhasPage() {
         </div>
       </div>
 
-      {/* Grid de Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {campanhasFiltradas.map((campanha) => {
           const status = getCampanhaStatus(campanha);
@@ -364,7 +344,6 @@ export function CampanhasPage() {
         })}
       </div>
 
-      {/* MODAL */}
       {showModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto">
@@ -396,11 +375,9 @@ export function CampanhasPage() {
                   </div>
                 </div>
 
-                {/* --- SEÇÃO DE VACINAS COM CHIPS --- */}
                 <div>
                   <label className="block text-sm mb-2">Vacinas Disponíveis *</label>
                   
-                  {/* Busca Inteligente: Só mostra o que não foi selecionado */}
                   <AsyncSearchSelect<VacinaResponse>
                     label=""
                     placeholder="Digite para adicionar uma vacina..."
@@ -417,12 +394,10 @@ export function CampanhasPage() {
                     onSelect={handleAddVacina}
                   />
 
-                  {/* Lista de Chips Selecionados */}
                   <div className="mt-3 flex flex-wrap gap-2 min-h-[40px] p-2 border border-gray-100 rounded-lg bg-gray-50">
                     {formData.vacinas.length === 0 && <span className="text-sm text-gray-400 italic p-1">Nenhuma vacina selecionada.</span>}
                     
                     {formData.vacinas.map(id => {
-                      // Encontra o objeto completo pelo ID armazenado
                       const vacina = vacinas.find(v => v.codigo_vacina.toString() === id);
                       return (
                         <div key={id} className="flex items-center gap-2 px-3 py-1 bg-blue-100 text-blue-700 rounded-full text-sm">
@@ -440,7 +415,6 @@ export function CampanhasPage() {
                     })}
                   </div>
                 </div>
-                {/* ---------------------------------- */}
 
                 <div>
                   <label className="flex items-center gap-2 cursor-pointer">

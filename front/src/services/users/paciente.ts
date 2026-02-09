@@ -4,6 +4,7 @@ import api from "../../lib/axios";
 export interface PacienteSearchResponse {
   id: string;
   nome: string;
+  cpf: string;
 }
 
 export interface PacienteDTO {
@@ -15,10 +16,10 @@ export interface PacienteDTO {
 }
 
 export interface PacienteResponse {
-  id: string; 
-  nome: string;
+  id: string; // UUID
+  nome: string; // Nome completo (pnome + unome concatenados no backend)
   cpf: string;
-  data_nascimento: string;
+  data_nascimento: string; // Vem como string ISO do banco
   telefone: string | null;
   email: string | null;
 }

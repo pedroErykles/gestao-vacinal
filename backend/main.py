@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 import model
 from database import engine 
-from routes import users, ubs
+from routes import users, ubs, vacinas, campanhas, aplicacoes, dashboard, graficos
 from fastapi.middleware.cors import CORSMiddleware
 from database import Base
 
@@ -11,15 +11,16 @@ app = FastAPI()
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # para produção, use apenas seus domínios autorizados
+    allow_origins=["*"], 
     allow_credentials=True,
-    allow_methods=["*"],  # Permite GET, POST, PUT, DELETE, OPTIONS etc
-    allow_headers=["*"],  # Permite qualquer header
+    allow_methods=["*"], 
+    allow_headers=["*"],  
 )
-
-@app.get("/")
-def teste():
-    return {"bora pro racha hoje à noite?"}
 
 app.include_router(users.router)
 app.include_router(ubs.router)
+app.include_router(vacinas.router)
+app.include_router(campanhas.router)
+app.include_router(aplicacoes.router)
+app.include_router(dashboard.router)
+app.include_router(graficos.router)

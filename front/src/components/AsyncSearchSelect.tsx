@@ -10,7 +10,6 @@ interface AsyncSearchSelectProps<T> {
   label: string;
   placeholder?: string;
   initialValue?: T | null;
-  // NOVA PROPRIEDADE:
   clearAfterSelect?: boolean; 
 }
 
@@ -22,7 +21,7 @@ export function AsyncSearchSelect<T>({
   label, 
   placeholder,
   initialValue,
-  clearAfterSelect = false // Padrão é false (comportamento normal)
+  clearAfterSelect = false
 }: AsyncSearchSelectProps<T>) {
   
   const [query, setQuery] = useState('');
@@ -44,7 +43,6 @@ export function AsyncSearchSelect<T>({
         setQuery('');
       }
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [initialValue]); 
 
   useEffect(() => {
@@ -65,7 +63,7 @@ export function AsyncSearchSelect<T>({
     };
 
     loadData();
-  }, [debouncedQuery]); // Removida dependência selectedItem para evitar loops no modo clear
+  }, [debouncedQuery]);
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
@@ -78,14 +76,12 @@ export function AsyncSearchSelect<T>({
   }, []);
 
   const handleSelect = (item: T) => {
-    onSelect(item); // Notifica o pai primeiro
+    onSelect(item);
     
     if (clearAfterSelect) {
-      // MODO TAG: Limpa tudo para permitir nova digitação
       setSelectedItem(null);
       setQuery('');
     } else {
-      // MODO SELECT NORMAL: Mantém o item selecionado no input
       setSelectedItem(item);
       setQuery(getDisplayValue(item));
     }
@@ -119,14 +115,13 @@ export function AsyncSearchSelect<T>({
 
   return (
     <div className="relative" ref={wrapperRef}>
-      {label && <label className="block text-sm mb-2 font-medium text-gray-700">{label}</label>}
+      {label && <label className="block text-sm mb-2 font-medium">{label}</label>}
       
       <div className="relative">
         <input
           type="text"
-          className="w-full px-4 py-2 pl-10 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+          className="w-full px-4 py-2 pl-10 pr-10 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 truncate"
           placeholder={placeholder || "Digite 3 letras..."}
-          // No modo clearAfterSelect, se não tiver query, o campo fica vazio
           value={(!clearAfterSelect && selectedItem) ? getDisplayValue(selectedItem) : query}
           onChange={handleInputChange}
           onFocus={() => {

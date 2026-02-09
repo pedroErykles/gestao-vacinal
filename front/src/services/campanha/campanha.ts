@@ -31,46 +31,30 @@ export interface CampanhaResponse {
 }
 
 export const campanhasService = {
-  /**
-   * Lista todas as campanhas
-   * Endpoint: GET /campanhas/
-   */
+
   listar: async (): Promise<CampanhaResponse[]> => {
     const response = await api.get<CampanhaResponse[]>("/campanhas/");
     return response.data;
   },
 
-  /**
-   * Busca uma campanha específica pelo ID
-   * Endpoint: GET /campanhas/{id}
-   */
+
   obterPorId: async (id: number): Promise<CampanhaResponse> => {
     const response = await api.get<CampanhaResponse>(`/campanhas/${id}`);
     return response.data;
   },
 
-  /**
-   * Cria uma nova campanha
-   * Endpoint: POST /campanhas/
-   */
+
   criar: async (dados: CampanhaPayload): Promise<CampanhaResponse> => {
     const response = await api.post<CampanhaResponse>("/campanhas/", dados);
     return response.data;
   },
 
-  /**
-   * Atualiza uma campanha existente
-   * Endpoint: PUT /campanhas/{id}
-   */
+
   atualizar: async (id: number, dados: CampanhaPayload): Promise<CampanhaResponse> => {
     const response = await api.put<CampanhaResponse>(`/campanhas/${id}`, dados);
     return response.data;
   },
 
-  /**
-   * Remove uma campanha
-   * Endpoint: DELETE /campanhas/{id}
-   */
   deletar: async (id: number): Promise<void> => {
     await api.delete(`/campanhas/${id}`);
   },

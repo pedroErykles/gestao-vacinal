@@ -12,6 +12,10 @@ export interface VacinaPayload {
   publico_alvo: string;
   doenca: string;
   quantidade_doses: number;
+
+  intervalo_doses: number; 
+  // -----------------------------
+
   descricao: string;
   fabricante_cnpj: string; 
 }
@@ -24,6 +28,9 @@ export interface VacinaResponse {
   quantidade_doses: number;
   descricao: string;
   fabricante: FabricanteResponse | null;
+  intervaloDoses?: number;
+  
+  intervalo_padrao?: number; 
 }
 
 export interface SearchVacinaResponse {
@@ -38,7 +45,6 @@ export const vacinasService = {
     const response = await api.get<VacinaResponse[]>("/vacinas");
     return response.data;
   },
-
 
   criar: async (dados: VacinaPayload): Promise<VacinaResponse> => {
     const response = await api.post<VacinaResponse>("/vacinas", dados);

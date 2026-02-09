@@ -1,31 +1,26 @@
 import uuid
 import enum
+from datetime import date
 from datetime import datetime
 from typing import Optional, List
-from pydantic import BaseModel, EmailStr, ConfigDict, Field
+from pydantic import BaseModel, EmailStr, ConfigDict, Field, field_validator
 
-# --- 0. Enums (Deve ser igual ao do model) ---
 class RoleEnum(str, enum.Enum):
     ADMIN = "ADMIN"
     GESTOR = "GESTOR"
     PACIENTE = "PACIENTE"
     PROFISSIONAL = "PROFISSIONAL"
 
-# --- 1. Schemas de Usuário (Hierarquia) ---
 
-# Base: Campos comuns a todos os seres humanos do sistema
 class UsuarioBase(BaseModel):
-    pnome: str
-    unome: str
+    nome: str
     email: EmailStr
     telefone: str
     cpf_usuario: str
 
-# Create Base: Adiciona senha (comum a todos na criação)
 class UsuarioCreateCommon(UsuarioBase):
     senha: str
 
-# Response Base: O que todo usuário retorna (sem senha, com ID e Role)
 class UsuarioResponse(UsuarioBase):
     id: uuid.UUID
     role: RoleEnum
@@ -35,51 +30,45 @@ class UsuarioResponse(UsuarioBase):
 class BaseUsuarioBuscaResponse(BaseModel):
     id: uuid.UUID
     nome: str
+    cpf: str
 
-# --- 1.1 Schemas Específicos por Papel ---
-
-# PACIENTE
 class PacienteCreate(UsuarioCreateCommon):
     role: RoleEnum = RoleEnum.PACIENTE
 
 class PacienteResponse(UsuarioResponse):
     pass
 
-# GESTOR
 class GestorCreate(UsuarioCreateCommon):
     role: RoleEnum = RoleEnum.GESTOR
 
 class GestorResponse(UsuarioResponse):
     pass
 
-# ADMIN
 class AdminCreate(UsuarioCreateCommon):
     role: RoleEnum = RoleEnum.ADMIN
 
 class AdminResponse(UsuarioResponse):
     pass
 
-# PROFISSIONAL
 class ProfissionalCreate(UsuarioCreateCommon):
     role: RoleEnum = RoleEnum.PROFISSIONAL
-    # Exemplo: registro_conselho: str
+    grau_formacao: str
 
 class ProfissionalResponse(UsuarioResponse):
-    # Exemplo: registro_conselho: Optional[str] = None
+    grau_formacao: str
     pass
 
 
-# --- 2. Entidades de Apoio (Fabricante, Fornecedor, Unidade) ---
 
 class FabricanteBase(BaseModel):
     nome: str
     telefone: str
 
 class FabricanteCreate(FabricanteBase):
-    cnpj: str
+    cnpj: str = Field(..., min_length=14, max_length=14)
 
 class FabricanteResponse(FabricanteBase):
-    cnpj: str
+    cnpj: str = Field(validation_alias=("cnpj_fabricante"))
     model_config = ConfigDict(from_attributes=True)
 
 class FornecedorBase(BaseModel):
@@ -90,7 +79,7 @@ class FornecedorCreate(FornecedorBase):
     cnpj: str
 
 class FornecedorResponse(FornecedorBase):
-    cnpj: str
+    cnpj: str  = Field(validation_alias=("cnpj_fornecedor"))
     model_config = ConfigDict(from_attributes=True)
 
 class UnidadeBase(BaseModel):
@@ -109,105 +98,262 @@ class UnidadeCreate(UnidadeBase):
     nome_unidade: str
 
 class UnidadeResponse(UnidadeBase):
+    id: uuid.UUID
     nome_unidade: str
     model_config = ConfigDict(from_attributes=True)
 
 
-# --- 3. Vacinas e Estoque ---
+
 
 class VacinaBase(BaseModel):
     nome: str
     publico_alvo: str
     doenca: str
     quantidade_doses: int
-
-class BuscaVacina(BaseModel): 
-    id: int
-    nome: str
-    fabricante: str
+    descricao: str
 
 class VacinaCreate(VacinaBase):
     fabricante_cnpj: str
-
+    intervalo_doses: int
+    
 class VacinaResponse(VacinaBase):
     codigo_vacina: int
     fabricante: Optional[FabricanteResponse] = None
+    
+    model_config = ConfigDict(from_attributes=True)
+
+class BuscaVacinaResponse(BaseModel):
+    id: int
+    nome: str
+    fabricante_nome: str
+    
     model_config = ConfigDict(from_attributes=True)
 
 class EstoqueCreate(BaseModel):
-    nome_unidade: str
+    id_unidade: str
     gestor_id: uuid.UUID
 
 class EstoqueResponse(BaseModel):
     id_estoque: int
     unidade: Optional[UnidadeResponse] = None
-    # Note que agora usamos GestorResponse (que herda de UsuarioResponse)
     gestor: Optional[GestorResponse] = None
     model_config = ConfigDict(from_attributes=True)
 
+
 class LoteCreate(BaseModel):
+    codigo: str
     validade: datetime
     data_chegada: datetime
-    quantidade: int
+    quantidade: int 
     estoque_id: int
     vacina_id: int
     fornecedor_cnpj: str
 
-class LoteResponse(LoteCreate):
+class LoteResponse(BaseModel):
     id_lote: int
+    codigo: str
+    quantidade: int
+    validade: datetime
+    data_chegada: datetime
+    
+    vacina_id: int 
+    fornecedor_cnpj: str 
+    
     vacina: Optional[VacinaResponse] = None
+    
     model_config = ConfigDict(from_attributes=True)
 
-
-# --- 4. Aplicação e Dose ---
-
-class DoseCreate(BaseModel):
-    intervalo: int
-    numero: int
+class DoseBase(BaseModel):
+    numero: int    
+    intervalo: int  
     vacina_id: int
 
-class DoseResponse(DoseCreate):
+class DoseCreate(DoseBase):
+    pass
+
+class DoseResponse(DoseBase):
     id_dose: int
+    
+    vacina: Optional[VacinaResponse] = None 
+
     model_config = ConfigDict(from_attributes=True)
+
 
 class AplicacaoCreate(BaseModel):
     data: Optional[datetime] = None
+    
     paciente_id: uuid.UUID
     profissional_id: uuid.UUID
     admin_id: uuid.UUID
-    unidade_nome: str
+    unidade_id: uuid.UUID
+    
     dose_id: int
     lote_id: int
+    observacoes: Optional[str] = None
 
 class AplicacaoResponse(BaseModel):
     id_aplicacao: int
     data: datetime
 
-    lote: Optional[int] = None #aqui é o id do lote apenas 
-    paciente: Optional[PacienteResponse] = None
-    profissional: Optional[ProfissionalResponse] = None
-    admin: Optional[GestorResponse] = None
+    fabricante_nome: str = Field(validation_alias="fabricante_nome")
+    observacoes: Optional[str] = None
+        
+    paciente_nome: str = Field(validation_alias="nome_paciente")
+    paciente_cpf: str = Field(validation_alias="cpf_paciente")
     
-    dose: Optional[DoseResponse] = None
-    unidade: Optional[UnidadeResponse] = None
+    vacina_nome: str = Field(validation_alias="nome_vacina")
+    dose_numero: int = Field(validation_alias="numero_dose")
+    lote_codigo: int = Field(validation_alias="codigo_lote")
+    lote_id: int    
+    nome_unidade: str = Field(validation_alias="nome_unidade")
+    profissional_nome: str = Field(validation_alias="nome_profissional")
+    paciente_id: uuid.UUID
+    dose_id: int
+
+    profissional_id: uuid.UUID = Field(validation_alias="profissional_id")
+    unidade_id: uuid.UUID = Field(validation_alias=("unidade_id"))
+
+    vacina_id: int = Field(validation_alias="id_vacina")
     
+    
+    proxima_dose: Optional[datetime] = Field(default=None, validation_alias="data_proxima_dose")
+
     model_config = ConfigDict(from_attributes=True)
-
-
-# --- 5. Campanhas ---
 
 class CampanhaCreate(BaseModel):
+    nome: str
     data_inicio: datetime
     data_fim: datetime
-    nome: str
     admin_id: uuid.UUID
+    vacina_ids: List[int] = []
+    
+    publico_alvo: str
+    descricao: Optional[str] = None
+    ativa: bool = True
 
-class CampanhaResponse(CampanhaCreate):
-    id: int
+    @field_validator('data_fim')
+    def validar_datas(cls, v, values):
+        data_inicio = values.data.get('data_inicio')
+        if data_inicio and v <= data_inicio:
+            raise ValueError('A data de fim deve ser posterior à data de início.')
+        return v
+
+class CampanhaResponse(BaseModel):
+    id: int = Field(validation_alias="id_campanha")
+    nome: str
+    data_inicio: datetime
+    data_fim: datetime
+    
+    publico_alvo: str
+    descricao: Optional[str] = None
+    ativa: bool
+    # --------------------
+
     admin: Optional[AdminResponse] = None
+    vacina_ids: List[int] = []
+    
     model_config = ConfigDict(from_attributes=True)
 
-# Many-to-Many
 class PublicacaoCreate(BaseModel):
     campanha_id: int
     vacina_id: int
+
+class DashboardFilter(BaseModel):
+    ano: int
+    data_inicio: Optional[date] = None
+    data_fim: Optional[date] = None
+    vacina_id: Optional[int] = None
+
+class ChartData(BaseModel):
+    name: str
+    value: int
+
+class DashboardStats(BaseModel):
+    total_aplicacoes: int
+    pacientes_vacinados: int
+    media_mensal: int
+    vacina_mais_aplicada: str
+    mes_mais_ativo: str
+    
+    aplicacoes_por_mes: List[ChartData]
+    aplicacoes_por_vacina: List[ChartData]
+    aplicacoes_por_local: List[ChartData]
+
+class ExportData(BaseModel):
+    data_aplicacao: date
+    paciente_nome: str
+    vacina_nome: str
+    dose: int
+    local: str
+    profissional_nome: str
+
+    
+class GraficoDia(BaseModel):
+    dia: str
+    total: int
+
+class GraficoVacinaTotal(BaseModel):
+    vacina: str
+    total: int
+
+class GraficoEstoque(BaseModel):
+    vacina: str
+    quantidade: int
+
+class GraficoMes(BaseModel):
+    mes: str
+    total: int
+
+class DistribuicaoVacina(BaseModel):
+    vacina: str
+    quantidade: int
+    percentual: float
+
+class DistribuicaoLocal(BaseModel):
+    ubs: str
+    total: int
+
+class ResumoMensal(BaseModel):
+    mes: str
+    total_aplicacoes: int
+    percentual: float
+
+
+class PacienteResumo(BaseModel):
+    id: uuid.UUID 
+    
+    nome: str
+    
+    cpf: str = Field(validation_alias="cpf_usuario")
+
+    model_config = ConfigDict(from_attributes=True)
+
+class VacinaResumo(BaseModel):
+    codigo: int = Field(validation_alias="codigo_vacina")
+    nome: str
+
+class LoteResumo(BaseModel):
+    id: int = Field(validation_alias="id_lote")
+    vacina: Optional[VacinaResumo] = None
+
+class AplicacaoDetalhada(BaseModel):
+    id_aplicacao: int
+    
+    data: datetime 
+    
+    dose: int = Field(validation_alias="numero_dose")
+    
+    local: str = Field(validation_alias="nome_unidade")
+    
+    profissional_nome: Optional[str] = Field(default=None, validation_alias="nome_profissional")
+    
+    paciente: Optional[PacienteResumo] = None
+    lote: Optional[LoteResumo] = None
+
+    @property
+    def vacina_nome(self):
+        if self.lote and self.lote.vacina:
+            return self.lote.vacina.nome
+        return "Desconhecida"
+
+    model_config = ConfigDict(from_attributes=True)

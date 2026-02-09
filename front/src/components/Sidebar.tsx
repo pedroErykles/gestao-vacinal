@@ -12,7 +12,7 @@ export function Sidebar({ currentPage, onPageChange }: SidebarProps) {
     { id: 'lotes', label: 'Lotes', icon: Package },
     { id: 'registros', label: 'Registros de Aplicação', icon: FileText },
     { id: 'campanhas', label: 'Campanhas', icon: Calendar },
-    { id: 'relatorios', label: 'Relatórios', icon: BarChart3 },
+    { id: 'relatorios', label: 'Relatório', icon: BarChart3 },
   ];
 
   return (
